@@ -454,6 +454,48 @@ function PillGroup({ options, selected, onToggle }) {
   );
 }
 
+// Same as PillGroup, but with a text filter above it for long option lists (e.g. notes/accords).
+// Already-selected pills always stay visible regardless of the search text, so typing never
+// hides something the user already picked.
+function SearchablePillGroup({ options, selected, onToggle, placeholder }) {
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const visible = q
+    ? options.filter(opt => selected.includes(opt) || opt.toLowerCase().includes(q))
+    : options;
+  return (
+    <div>
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder={placeholder || "Search…"}
+        style={{
+          width: "100%",
+          padding: "8px 12px",
+          marginBottom: 8,
+          borderRadius: "var(--radius-md)",
+          border: "1px solid var(--border-strong)",
+          background: "var(--card)",
+          color: "var(--text)",
+          fontSize: 14,
+          fontFamily: "inherit",
+        }}
+      />
+      {q && visible.length === 0 && (
+        <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "4px 0" }}>No notes match "{query}"</p>
+      )}
+      <div className="pillgroup">
+        {visible.map(opt => (
+          <button key={opt} type="button" className={"pill" + (selected.includes(opt) ? " selected" : "")} onClick={() => onToggle(opt)}>
+            {opt}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Section({ title, subtitle, children }) {
   return (
     <div style={{ marginBottom: "1.75rem" }}>
@@ -617,9 +659,9 @@ function App() {
 
       <Section title="Preferences" subtitle="Optional — but weighted highly when filled in">
         <p className="label">I want notes/accords like...</p>
-        <PillGroup options={noteUniverse} selected={wantedNotes} onToggle={toggle(setWantedNotes)} />
+        <SearchablePillGroup options={noteUniverse} selected={wantedNotes} onToggle={toggle(setWantedNotes)} placeholder="Search notes you want…" />
         <p className="label" style={{ marginTop: 14 }}>I don't want...</p>
-        <PillGroup options={noteUniverse} selected={unwantedNotes} onToggle={toggle(setUnwantedNotes)} />
+        <SearchablePillGroup options={noteUniverse} selected={unwantedNotes} onToggle={toggle(setUnwantedNotes)} placeholder="Search notes to avoid…" />
         <p className="label" style={{ marginTop: 14 }}>How loud?</p>
         <PillGroup options={["subtle","moderate","beast"]} selected={loudness ? [loudness] : []} onToggle={(v) => setLoudness(loudness === v ? null : v)} />
         <p className="label" style={{ marginTop: 14 }}>Familiarity</p>
