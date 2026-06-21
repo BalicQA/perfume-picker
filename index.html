@@ -103,6 +103,11 @@
 
 const { useState, useMemo, useEffect } = React;
 
+// Bump this on every deploy so it's easy to confirm which version is actually live
+// after uploading to GitHub (e.g. after a hard-refresh, check this matches what you expect).
+const APP_VERSION = "v2";
+const APP_VERSION_DATE = "2026-06-21";
+
 // ---------- TEST DATA (first 5 rows from the Perfumy sheet) ----------
 // NOTE: replace this block later with a live Google Sheets fetch.
 const TEST_PERFUMES = [
@@ -649,8 +654,13 @@ function App() {
     let pool = eligible;
     if (familiarity === "new") {
       const untried = eligible.filter(p => p.status === "");
-      const scored = untried.map(p => ({ p, s: scorePerfume(p, answers, eligible, aliasToCanonical) })).filter(x => x.s > 0);
-      pool = scored.length ? untried : eligible;
+      // Bug fix: previously required a score > 0 to "count" as a match, but a score of
+      // exactly 0 just means no quiz answers happened to overlap with that perfume's tags
+      // (neutral, not a non-match) — this incorrectly triggered the known-perfume fallback
+      // almost every time. The real two-pass check is simply: does ANY untried perfume
+      // exist at all? If so, show untried perfumes (ranked by whatever score they got,
+      // including 0); only fall back to known perfumes if there are truly zero untried ones.
+      pool = untried.length ? untried : eligible;
     } else if (familiarity === "known") {
       pool = eligible.filter(p => p.status !== ""); // any perfume she's already tried (OK_More or OK_Finish)
     } else if (familiarity === "testers") {
@@ -710,6 +720,7 @@ function App() {
         {dataSource === "test" && isRefreshing && "Loading your collection…"}
         {dataSource === "test" && !isRefreshing && "Using sample data — click Refresh data below to load your sheet"}
         {dataSource === "error" && `⚠ Couldn't load sheet (${loadError}) — showing last known data`}
+        {` · ${APP_VERSION} (${APP_VERSION_DATE})`}
       </p>
 
       <Section title="Weather">
