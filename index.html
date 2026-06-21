@@ -114,7 +114,7 @@ const TEST_PERFUMES = [
     sillage: "medium",
     timeOfDay: ["Day", "Night"],
     occasion: ["Home", "Walk", "Shopping", "Office"], temperature: ["Warm", "Cool", "Hot"],
-    weather: ["Clouds", "Rain"],
+    weather: ["Clouds", "Rain"], season: ["Spring", "Summer", "Autumn"],
     mood: ["Cozy", "Clean", "Calm", "Playful", "Tired", "Nostalgic", "Painful"],
   },
   {
@@ -127,7 +127,7 @@ const TEST_PERFUMES = [
     sillage: "short",
     timeOfDay: ["Day", "Night"],
     occasion: ["Home", "Walk", "Shopping"], temperature: ["Warm", "Cool"],
-    weather: ["Clouds", "Rain"],
+    weather: ["Clouds", "Rain"], season: ["Autumn", "Winter"],
     mood: ["Cozy", "Clean", "Calm", "Tired", "Painful"],
   },
   {
@@ -138,7 +138,7 @@ const TEST_PERFUMES = [
     baseNotes: ["vanille", "musk", "virginia cedar"],
     sillage: "long",
     timeOfDay: ["Night"],
-    occasion: ["Special"], temperature: [], weather: [], mood: [],
+    occasion: ["Special"], temperature: [], weather: [], season: ["Autumn", "Winter"], mood: [],
   },
   {
     brand: "Etat Libre d'Orange", name: "You or Someone Like You",
@@ -149,7 +149,7 @@ const TEST_PERFUMES = [
     sillage: "short",
     timeOfDay: ["Day"],
     occasion: ["Home", "Walk", "Shopping", "Office", "Sport"], temperature: ["Hot", "Warm"],
-    weather: ["Sun", "Clouds"],
+    weather: ["Sun", "Clouds"], season: ["Spring", "Summer"],
     mood: ["Clean", "Energetic", "Cozy"],
   },
   {
@@ -161,7 +161,7 @@ const TEST_PERFUMES = [
     sillage: "short",
     timeOfDay: ["Day"],
     occasion: ["Home", "Walk", "Shopping", "Office", "Sport"], temperature: ["Hot", "Warm"],
-    weather: ["Sun"],
+    weather: ["Sun"], season: ["Spring", "Summer"],
     mood: ["Clean", "Energetic"],
   },
 ];
@@ -256,6 +256,56 @@ const HECTIC_MOODS = ["Stressed","Anxious","Angry"];
 function detectTimeOfDay() {
   const h = new Date().getHours();
   return (h >= 4 && h < 18) ? "Day" : "Night";
+}
+
+// Meteorological seasons (fixed calendar months, not equinox/solstice dates).
+const SEASON_ORDER = ["Winter", "Spring", "Summer", "Autumn"]; // cyclical order, Winter wraps to Spring etc.
+function monthToSeason(month) {
+  // month: 0-11 (JS Date convention)
+  if (month === 11 || month === 0 || month === 1) return "Winter"; // Dec, Jan, Feb
+  if (month >= 2 && month <= 4) return "Spring";  // Mar, Apr, May
+  if (month >= 5 && month <= 7) return "Summer";  // Jun, Jul, Aug
+  return "Autumn"; // Sep, Oct, Nov
+}
+
+// Returns { current, options, isTransition } where:
+// - current: today's actual meteorological season (the default-on-no-tap value)
+// - options: array of season(s) to present as quiz choices (1 normally, 2 near a boundary)
+// - isTransition: whether we're within the ±1 month window of a season boundary
+function detectSeasonContext(now = new Date()) {
+  const year = now.getFullYear();
+  const current = monthToSeason(now.getMonth());
+
+  // Build the list of season-boundary dates for this year (and adjacent years, to
+  // correctly handle the Dec->Jan wrap), then check if "now" falls within ±1 month
+  // of any of them.
+  const boundaries = [
+    new Date(year, 2, 1),  // Mar 1 - Winter -> Spring
+    new Date(year, 5, 1),  // Jun 1 - Spring -> Summer
+    new Date(year, 8, 1),  // Sep 1 - Summer -> Autumn
+    new Date(year, 11, 1), // Dec 1 - Autumn -> Winter
+    new Date(year + 1, 2, 1), // next year's Mar 1, for late-Dec/Jan wrap edge cases
+    new Date(year - 1, 11, 1), // previous year's Dec 1, for early-Jan edge cases
+  ];
+
+  const ONE_MONTH_MS = 31 * 24 * 60 * 60 * 1000; // approximate, generous on purpose
+  let nearestBoundary = null;
+  let nearestDist = Infinity;
+  boundaries.forEach(b => {
+    const dist = Math.abs(now.getTime() - b.getTime());
+    if (dist < nearestDist) { nearestDist = dist; nearestBoundary = b; }
+  });
+
+  const isTransition = nearestDist <= ONE_MONTH_MS;
+  if (!isTransition || !nearestBoundary) {
+    return { current, options: [current], isTransition: false };
+  }
+
+  // Determine the season just before and just after the nearest boundary.
+  const beforeSeason = monthToSeason(new Date(nearestBoundary.getTime() - 24 * 60 * 60 * 1000).getMonth());
+  const afterSeason = monthToSeason(nearestBoundary.getMonth());
+  const options = beforeSeason === afterSeason ? [beforeSeason] : [beforeSeason, afterSeason];
+  return { current, options, isTransition: true };
 }
 
 function buildNoteUniverse(perfumes) {
@@ -380,6 +430,25 @@ function scorePerfume(p, answers, pool, aliasToCanonical) {
   const wanted = answers.wantedNotes || [];
   const unwanted = answers.unwantedNotes || [];
 
+  // Season: outranks Temperature/Weather (§5.1a). If the user left Season untouched,
+  // fall back to today's actual auto-detected season as the effective value — this is
+  // the one field where "no tap" still means something, not "ignore this dimension."
+  const effectiveSeason = (answers.season && answers.season.length) ? answers.season : (answers.seasonDefault ? [answers.seasonDefault] : []);
+  if (effectiveSeason.length) {
+    let seasons = p.season || [], inferred = false;
+    if (!seasons.length) { const inf = inferField(p, "season", pool); if (inf) { seasons = [inf]; inferred = true; } }
+    if (seasons.length) {
+      const overlap = seasons.some(s => effectiveSeason.includes(s));
+      if (overlap) {
+        score += inferred ? 2 : 4; // stronger than the +2 weather/temp bonus
+      } else {
+        score -= inferred ? 4 : 8; // strong penalty, dominates weather/temp when they conflict
+      }
+    }
+    // If the perfume has no season data at all and inference found nothing, skip — no
+    // information either way, so we neither reward nor penalize.
+  }
+
   if (temperature.length) {
     let temps = p.temperature, inferred = false;
     if (!temps.length) { const inf = inferField(p, "temperature", pool); if (inf) { temps = [inf]; inferred = true; } }
@@ -420,6 +489,11 @@ function scorePerfume(p, answers, pool, aliasToCanonical) {
 
 function generateReason(p, answers, aliasToCanonical) {
   const reasons = [];
+  const effectiveSeason = (answers.season && answers.season.length) ? answers.season : (answers.seasonDefault ? [answers.seasonDefault] : []);
+  if (effectiveSeason.length && p.season && p.season.length) {
+    const overlap = p.season.filter(s => effectiveSeason.includes(s));
+    if (overlap.length) reasons.push(`right for ${overlap.join("/").toLowerCase()}`);
+  }
   if (answers.mood.length) {
     const overlap = p.mood.filter(m => answers.mood.includes(m));
     if (overlap.length) reasons.push(`matches your ${overlap.join(", ").toLowerCase()} mood`);
@@ -514,6 +588,8 @@ function App() {
   const { displayList: noteUniverse, aliasToCanonical } = useMemo(() => buildNormalizedNoteUniverse(perfumes), [perfumes]);
   const [temperature, setTemperature] = useState([]);
   const [weather, setWeather] = useState([]);
+  const seasonCtx = useMemo(() => detectSeasonContext(), []); // computed once per app load
+  const [season, setSeason] = useState([]); // user's explicit picks; empty = use seasonCtx.current as default
   const [occasion, setOccasion] = useState([]);
   const [stress, setStress] = useState("normal");
   const [timeOfDay, setTimeOfDay] = useState(detectTimeOfDay());
@@ -555,6 +631,7 @@ function App() {
   const resetAll = () => {
     setTemperature([]);
     setWeather([]);
+    setSeason([]);
     setOccasion([]);
     setStress("normal");
     setTimeOfDay(detectTimeOfDay());
@@ -568,7 +645,7 @@ function App() {
 
   const results = useMemo(() => {
     const eligible = eligiblePerfumes(perfumes);
-    const answers = { temperature, weather, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity };
+    const answers = { temperature, weather, season, seasonDefault: seasonCtx.current, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity };
     let pool = eligible;
     if (familiarity === "new") {
       const untried = eligible.filter(p => p.status === "");
@@ -584,7 +661,7 @@ function App() {
     const scored = pool.map(p => ({ p, score: scorePerfume(p, answers, eligible, aliasToCanonical) }));
     scored.sort((a, b) => b.score - a.score);
     return scored.slice(0, 5);
-  }, [perfumes, temperature, weather, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity, aliasToCanonical]);
+  }, [perfumes, temperature, weather, season, seasonCtx, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity, aliasToCanonical]);
 
   if (step === "results") {
     return (
@@ -607,7 +684,7 @@ function App() {
                 <div>
                   <p style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{p.brand} — {p.name}</p>
                   <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-secondary)" }}>
-                    {generateReason(p, { temperature, weather, occasion, mood, wantedNotes }, aliasToCanonical)}
+                    {generateReason(p, { temperature, weather, season, seasonDefault: seasonCtx.current, occasion, mood, wantedNotes }, aliasToCanonical)}
                   </p>
                 </div>
                 <span className="tag" style={{ fontWeight: 600 }}>#{i + 1} · score {score}</span>
@@ -640,6 +717,17 @@ function App() {
         <PillGroup options={["Cold","Cool","Warm","Hot"]} selected={temperature} onToggle={singleToggle(setTemperature)} />
         <p className="label" style={{ marginTop: 12 }}>Condition</p>
         <PillGroup options={["Sun","Clouds","Rain","Snow"]} selected={weather} onToggle={singleToggle(setWeather)} />
+      </Section>
+
+      <Section
+        title="Season"
+        subtitle={
+          seasonCtx.isTransition
+            ? `It's close to a season change — pick what feels right (defaults to ${seasonCtx.current} if you skip this)`
+            : `Auto-detected as ${seasonCtx.current} — tap to override`
+        }
+      >
+        <PillGroup options={seasonCtx.options} selected={season} onToggle={toggle(setSeason)} />
       </Section>
 
       <Section title="Occasion & stress">
