@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Perfumy — pick your scent</title>
+<title>Personal perfume picker</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -505,6 +505,10 @@ function App() {
   useEffect(() => { refreshData(); }, []);
 
   const toggle = (setter) => (item) => setter(prev => prev.includes(item) ? prev.filter(x => x !== item) : [...prev, item]);
+  // Single-select toggle: clicking selects only that item (replacing any previous pick),
+  // or deselects entirely if clicking the already-selected pill. Keeps state as an array
+  // of 0 or 1 items so existing scoring/filter logic (which expects arrays) needs no changes.
+  const singleToggle = (setter) => (item) => setter(prev => (prev[0] === item ? [] : [item]));
 
   const resetAll = () => {
     setTemperature([]);
@@ -528,6 +532,8 @@ function App() {
       const untried = eligible.filter(p => p.status === "");
       const scored = untried.map(p => ({ p, s: scorePerfume(p, answers, eligible, aliasToCanonical) })).filter(x => x.s > 0);
       pool = scored.length ? untried : eligible;
+    } else if (familiarity === "known") {
+      pool = eligible.filter(p => p.status !== ""); // any perfume she's already tried (OK_More or OK_Finish)
     } else if (familiarity === "testers") {
       pool = eligible.filter(p => p.size === "Tester" && p.status !== "");
     } else if (familiarity === "bottles") {
@@ -578,7 +584,7 @@ function App() {
 
   return (
     <div>
-      <h1>Perfumy</h1>
+      <h1>Personal perfume picker</h1>
       <p className="subtitle" style={{ marginBottom: 8 }}>What's today calling for? Everything below is optional.</p>
       <p style={{ fontSize: 12, marginBottom: "1.75rem", color: dataSource === "live" ? "#5a8a5e" : dataSource === "error" ? "#b4543f" : "var(--text-tertiary)" }}>
         {dataSource === "live" && `✓ Live collection loaded (${perfumes.length} perfumes)${lastUpdated ? " · " + lastUpdated : ""}`}
@@ -589,9 +595,9 @@ function App() {
 
       <Section title="Weather">
         <p className="label">Temperature</p>
-        <PillGroup options={["Cold","Cool","Warm","Hot"]} selected={temperature} onToggle={toggle(setTemperature)} />
+        <PillGroup options={["Cold","Cool","Warm","Hot"]} selected={temperature} onToggle={singleToggle(setTemperature)} />
         <p className="label" style={{ marginTop: 12 }}>Condition</p>
-        <PillGroup options={["Sun","Clouds","Rain","Snow"]} selected={weather} onToggle={toggle(setWeather)} />
+        <PillGroup options={["Sun","Clouds","Rain","Snow"]} selected={weather} onToggle={singleToggle(setWeather)} />
       </Section>
 
       <Section title="Occasion & stress">
@@ -618,10 +624,10 @@ function App() {
         <PillGroup options={["subtle","moderate","beast"]} selected={loudness ? [loudness] : []} onToggle={(v) => setLoudness(loudness === v ? null : v)} />
         <p className="label" style={{ marginTop: 14 }}>Familiarity</p>
         <PillGroup
-          options={["Something new","From testers","From full bottles","No preference"]}
-          selected={familiarity ? [familiarity === "new" ? "Something new" : familiarity === "testers" ? "From testers" : familiarity === "bottles" ? "From full bottles" : "No preference"] : []}
+          options={["Something new","Something known","From testers","From full bottles"]}
+          selected={familiarity ? [familiarity === "new" ? "Something new" : familiarity === "known" ? "Something known" : familiarity === "testers" ? "From testers" : "From full bottles"] : []}
           onToggle={(v) => {
-            const map = { "Something new": "new", "From testers": "testers", "From full bottles": "bottles", "No preference": null };
+            const map = { "Something new": "new", "Something known": "known", "From testers": "testers", "From full bottles": "bottles" };
             setFamiliarity(prev => prev === map[v] ? null : map[v]);
           }}
         />
