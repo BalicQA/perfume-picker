@@ -269,6 +269,87 @@ function buildNoteUniverse(perfumes) {
   return Array.from(set).sort();
 }
 
+// Checks whether `needle` appears in `haystack` as a whole word (not just a substring),
+// e.g. "sandalwood" is a whole-word match inside "australian sandalwood",
+// but "cassia" is NOT a whole-word match inside "cassis" (different words).
+function isWholeWordMatch(haystack, needle) {
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`(^|\\s)${escaped}($|\\s)`, "i");
+  return re.test(haystack);
+}
+
+// Modifier words that, when appended to a shorter note (e.g. "coconut" -> "coconut milk"),
+// usually signal a meaningfully DIFFERENT facet of the scent rather than a mere synonym/
+// specificity variant — so these compounds should NOT be auto-merged with their shorter form.
+// e.g. "coconut" vs "coconut milk" (different character: tropical vs. creamy/gourmand),
+// "iris" vs "iris leaf" (root/flower vs. green leaf facet),
+// "cedar" vs "cedarwood"-style... ("wood" itself, e.g. "sandalwood" already reads as one
+// word so it isn't affected; this guards constructions like "oak wood" / "cedar wood").
+const PROTECTED_MODIFIERS = ["leaf", "leaves", "wood", "milk", "juice"];
+
+// Given a shorter note fully contained (as a whole word) in a longer note, returns true
+// if the longer note's *extra* word(s) are just a protected modifier — meaning these two
+// should be treated as different notes, not merged.
+function isProtectedCompound(shorter, longer) {
+  const shorterLower = shorter.toLowerCase().trim();
+  const longerLower = longer.toLowerCase().trim();
+  // Get whatever's left after removing the shorter note from the longer one.
+  const remainder = longerLower.replace(shorterLower, "").trim();
+  if (!remainder) return false;
+  return PROTECTED_MODIFIERS.includes(remainder);
+}
+
+// Groups note strings that contain one another as a whole word (e.g. "Australian
+// sandalwood" + "sandalwood" -> one group), picking the shortest string as the
+// canonical/display label. Returns { displayList, aliasToCanonical } where
+// aliasToCanonical maps every raw note string (including the canonical one itself)
+// to its canonical form, for use when scoring/matching.
+// Compounds matching PROTECTED_MODIFIERS (e.g. "coconut milk", "iris leaf") are
+// deliberately kept separate from their shorter base note.
+function buildNormalizedNoteUniverse(perfumes) {
+  const raw = buildNoteUniverse(perfumes);
+  const groups = []; // each group: array of raw strings that are considered "the same note"
+
+  raw.forEach(note => {
+    const lower = note.toLowerCase();
+    let placed = false;
+    for (const group of groups) {
+      const matchesGroup = group.some(g => {
+        const gLower = g.toLowerCase();
+        const aContainsB = isWholeWordMatch(lower, gLower);
+        const bContainsA = isWholeWordMatch(gLower, lower);
+        if (!aContainsB && !bContainsA) return false;
+        // Determine which is shorter/longer to check the protected-modifier rule.
+        const [shorter, longer] = note.length <= g.length ? [note, g] : [g, note];
+        if (isProtectedCompound(shorter, longer)) return false; // keep separate
+        return true;
+      });
+      if (matchesGroup) {
+        group.push(note);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) groups.push([note]);
+  });
+
+  const aliasToCanonical = {};
+  const displayList = [];
+  groups.forEach(group => {
+    // Canonical = shortest string in the group (simplest/most general form).
+    const canonical = group.reduce((a, b) => (b.length < a.length ? b : a));
+    displayList.push(canonical);
+    group.forEach(member => { aliasToCanonical[member] = canonical; });
+  });
+
+  return { displayList: displayList.sort(), aliasToCanonical };
+}
+
+// Normalizes a list of raw note strings to their canonical forms using the alias map.
+function normalizeNotes(notes, aliasToCanonical) {
+  return notes.map(n => aliasToCanonical[n] || n);
+}
+
 function eligiblePerfumes(perfumes) {
   return perfumes.filter(p =>
     (p.size === "Bottle" || p.size === "Tester") &&
@@ -290,7 +371,7 @@ function inferField(perfume, field, pool) {
   return sorted.length ? sorted[0][0] : null;
 }
 
-function scorePerfume(p, answers, pool) {
+function scorePerfume(p, answers, pool, aliasToCanonical) {
   let score = 0;
   const temperature = answers.temperature || [];
   const weatherAns = answers.weather || [];
@@ -322,13 +403,11 @@ function scorePerfume(p, answers, pool) {
   }
   if (answers.timeOfDay && p.timeOfDay.includes(answers.timeOfDay)) score += 2;
   if (moodAns.length) score += p.mood.filter(m => moodAns.includes(m)).length * 2;
-  if (wanted.length) {
-    const allNotes = [...p.accords, ...p.topNotes, ...p.midNotes, ...p.baseNotes];
-    score += wanted.filter(n => allNotes.includes(n)).length * 4;
-  }
-  if (unwanted.length) {
-    const allNotes = [...p.accords, ...p.topNotes, ...p.midNotes, ...p.baseNotes];
-    score -= unwanted.filter(n => allNotes.includes(n)).length * 6;
+  if (wanted.length || unwanted.length) {
+    const rawNotes = [...p.accords, ...p.topNotes, ...p.midNotes, ...p.baseNotes];
+    const allNotes = aliasToCanonical ? normalizeNotes(rawNotes, aliasToCanonical) : rawNotes;
+    if (wanted.length) score += wanted.filter(n => allNotes.includes(n)).length * 4;
+    if (unwanted.length) score -= unwanted.filter(n => allNotes.includes(n)).length * 6;
   }
   if (answers.loudness) {
     const map = { short: "subtle", medium: "moderate", long: "beast" };
@@ -339,7 +418,7 @@ function scorePerfume(p, answers, pool) {
   return score;
 }
 
-function generateReason(p, answers) {
+function generateReason(p, answers, aliasToCanonical) {
   const reasons = [];
   if (answers.mood.length) {
     const overlap = p.mood.filter(m => answers.mood.includes(m));
@@ -350,7 +429,8 @@ function generateReason(p, answers) {
     if (overlap.length) reasons.push(`suits ${overlap.join("/").toLowerCase()} weather`);
   }
   if (answers.wantedNotes.length) {
-    const allNotes = [...p.accords, ...p.topNotes, ...p.midNotes, ...p.baseNotes];
+    const rawNotes = [...p.accords, ...p.topNotes, ...p.midNotes, ...p.baseNotes];
+    const allNotes = aliasToCanonical ? normalizeNotes(rawNotes, aliasToCanonical) : rawNotes;
     const overlap = answers.wantedNotes.filter(n => allNotes.includes(n));
     if (overlap.length) reasons.push(`has the ${overlap.join(", ")} you wanted`);
   }
@@ -389,7 +469,7 @@ function App() {
   const [perfumes, setPerfumes] = useState(TEST_PERFUMES); // starts with fallback test data
   const [dataSource, setDataSource] = useState("test"); // "test" | "live" | "error"
   const [loadError, setLoadError] = useState(null);
-  const noteUniverse = useMemo(() => buildNoteUniverse(perfumes), [perfumes]);
+  const { displayList: noteUniverse, aliasToCanonical } = useMemo(() => buildNormalizedNoteUniverse(perfumes), [perfumes]);
   const [temperature, setTemperature] = useState([]);
   const [weather, setWeather] = useState([]);
   const [occasion, setOccasion] = useState([]);
@@ -446,17 +526,17 @@ function App() {
     let pool = eligible;
     if (familiarity === "new") {
       const untried = eligible.filter(p => p.status === "");
-      const scored = untried.map(p => ({ p, s: scorePerfume(p, answers, eligible) })).filter(x => x.s > 0);
+      const scored = untried.map(p => ({ p, s: scorePerfume(p, answers, eligible, aliasToCanonical) })).filter(x => x.s > 0);
       pool = scored.length ? untried : eligible;
     } else if (familiarity === "testers") {
       pool = eligible.filter(p => p.size === "Tester" && p.status !== "");
     } else if (familiarity === "bottles") {
       pool = eligible.filter(p => p.size === "Bottle" && p.status !== "");
     }
-    const scored = pool.map(p => ({ p, score: scorePerfume(p, answers, eligible) }));
+    const scored = pool.map(p => ({ p, score: scorePerfume(p, answers, eligible, aliasToCanonical) }));
     scored.sort((a, b) => b.score - a.score);
     return scored.slice(0, 5);
-  }, [perfumes, temperature, weather, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity]);
+  }, [perfumes, temperature, weather, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity, aliasToCanonical]);
 
   if (step === "results") {
     return (
@@ -479,7 +559,7 @@ function App() {
                 <div>
                   <p style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{p.brand} — {p.name}</p>
                   <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-secondary)" }}>
-                    {generateReason(p, { temperature, weather, occasion, mood, wantedNotes })}
+                    {generateReason(p, { temperature, weather, occasion, mood, wantedNotes }, aliasToCanonical)}
                   </p>
                 </div>
                 <span className="tag" style={{ fontWeight: 600 }}>#{i + 1} · score {score}</span>
