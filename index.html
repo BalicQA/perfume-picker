@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perfumy — pick your scent</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+  :root {
+    --bg: #fdfaf7;
+    --card: #ffffff;
+    --border: #e8e0d8;
+    --border-strong: #d4c8ba;
+    --text: #2e2620;
+    --text-secondary: #756859;
+    --text-tertiary: #a3947f;
+    --accent: #a8715c;
+    --accent-bg: #f5e9e3;
+    --accent-text: #8a4f3a;
+    --pill-bg: #f7f2ed;
+    --radius-lg: 14px;
+    --radius-md: 8px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  #root { max-width: 640px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+  h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; }
+  h1 { font-size: 1.7rem; margin: 0 0 0.25rem; }
+  h2 { font-size: 1.35rem; margin: 0; }
+  h3 { font-size: 1.05rem; margin: 0 0 4px; }
+  p { line-height: 1.5; }
+  button { font-family: inherit; }
+  .pill {
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: var(--pill-bg);
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .pill:hover { border-color: var(--accent); }
+  .pill.selected {
+    background: var(--accent-bg);
+    border-color: var(--accent);
+    color: var(--accent-text);
+    font-weight: 600;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.1rem 1.3rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  }
+  .tag {
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: var(--radius-md);
+    background: var(--pill-bg);
+    color: var(--text-secondary);
+  }
+  .tag.untried { background: var(--accent-bg); color: var(--accent-text); }
+  .primary-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: var(--radius-lg);
+    background: var(--accent);
+    color: white;
+    border: none;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  .primary-btn:hover { background: var(--accent-text); }
+  .link-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 6px 0;
+  }
+  .link-btn:hover { color: var(--accent); }
+  .subtitle { font-size: 13px; color: var(--text-secondary); margin: 0 0 12px; }
+  .label { font-size: 12px; color: var(--text-tertiary); margin: 0 0 6px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .pillgroup { display: flex; flex-wrap: wrap; gap: 8px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+
+const { useState, useMemo, useEffect } = React;
+
+// ---------- TEST DATA (first 5 rows from the Perfumy sheet) ----------
+// NOTE: replace this block later with a live Google Sheets fetch.
+const TEST_PERFUMES = [
+  {
+    brand: "d'Annam", name: "Mango Sticky Rice",
+    size: "Tester", status: "OK_More", remainingMl: 1.5, gender: "Unisex",
+    accords: ["tropical", "sweet", "fruity"],
+    topNotes: ["mango"], midNotes: ["rice"], baseNotes: ["coconut milk"],
+    sillage: "medium",
+    timeOfDay: ["Day", "Night"],
+    occasion: ["Home", "Walk", "Shopping", "Office"], temperature: ["Warm", "Cool", "Hot"],
+    weather: ["Clouds", "Rain"],
+    mood: ["Cozy", "Clean", "Calm", "Playful", "Tired", "Nostalgic", "Painful"],
+  },
+  {
+    brand: "d'Annam", name: "Strawberry Mochi",
+    size: "Tester", status: "OK_Finish", remainingMl: 0.75, gender: "Unisex",
+    accords: ["sweet", "savory", "lactonic"],
+    topNotes: ["rice", "red bean paste", "brown sugar", "strawberry", "vanilla"],
+    midNotes: ["rice", "red bean paste", "brown sugar", "strawberry", "vanilla"],
+    baseNotes: ["rice", "red bean paste", "brown sugar", "strawberry", "vanilla"],
+    sillage: "short",
+    timeOfDay: ["Day", "Night"],
+    occasion: ["Home", "Walk", "Shopping"], temperature: ["Warm", "Cool"],
+    weather: ["Clouds", "Rain"],
+    mood: ["Cozy", "Clean", "Calm", "Tired", "Painful"],
+  },
+  {
+    brand: "Lancome", name: "Tresor Midnight Rose",
+    size: "Tester", status: "", remainingMl: 3, gender: "Female",
+    accords: ["fruity", "rose", "sweet", "soft spicy"],
+    topNotes: ["raspberry", "rose"], midNotes: ["cassis", "pink pepper", "peony", "jasmine"],
+    baseNotes: ["vanille", "musk", "virginia cedar"],
+    sillage: "long",
+    timeOfDay: ["Night"],
+    occasion: ["Special"], temperature: [], weather: [], mood: [],
+  },
+  {
+    brand: "Etat Libre d'Orange", name: "You or Someone Like You",
+    size: "Tester", status: "OK_Finish", remainingMl: 4, gender: "Unisex",
+    accords: ["green", "aromatic", "fresh spicy"],
+    topNotes: ["mint", "grapefruit", "bergamot", "anise"],
+    midNotes: ["green notes", "cassis", "rose", "hedione"], baseNotes: ["white musk"],
+    sillage: "short",
+    timeOfDay: ["Day"],
+    occasion: ["Home", "Walk", "Shopping", "Office", "Sport"], temperature: ["Hot", "Warm"],
+    weather: ["Sun", "Clouds"],
+    mood: ["Clean", "Energetic", "Cozy"],
+  },
+  {
+    brand: "Acqua di Parma", name: "Arancia di Capri",
+    size: "Tester", status: "OK_Finish", remainingMl: 5, gender: "Unisex",
+    accords: ["citrus", "aromatic"],
+    topNotes: ["orange", "sicilian mandarin", "bergamot", "lemon"],
+    midNotes: ["petitgrain", "cardamom"], baseNotes: ["caramel", "musk"],
+    sillage: "short",
+    timeOfDay: ["Day"],
+    occasion: ["Home", "Walk", "Shopping", "Office", "Sport"], temperature: ["Hot", "Warm"],
+    weather: ["Sun"],
+    mood: ["Clean", "Energetic"],
+  },
+];
+
+// ---------- LIVE GOOGLE SHEET CONFIG ----------
+const SHEET_ID = "1LPlsWSLDxr4tH5sTyuoOw3iWXfzRhfYhM93JKcQL4gU";
+const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
+
+// Splits a full CSV text into rows of cells, respecting quoted commas/newlines.
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"' && text[i + 1] === '"') { cur += '"'; i++; }
+      else if (ch === '"') { inQuotes = false; }
+      else { cur += ch; }
+    } else {
+      if (ch === '"') inQuotes = true;
+      else if (ch === ",") { row.push(cur); cur = ""; }
+      else if (ch === "\n" || ch === "\r") {
+        if (ch === "\r" && text[i + 1] === "\n") i++;
+        row.push(cur); cur = "";
+        rows.push(row); row = [];
+      } else cur += ch;
+    }
+  }
+  if (cur.length || row.length) { row.push(cur); rows.push(row); }
+  return rows.filter(r => r.some(c => c.trim() !== ""));
+}
+
+function splitMulti(val) {
+  if (!val) return [];
+  return val.split(",").map(s => s.trim()).filter(Boolean);
+}
+
+// Maps a raw CSV row (array of cell strings) to our perfume object shape.
+// Column order per spec §3: A Brand, B Name, C Concentration, D URL, E Size,
+// F Status, G Total ml, H Remaining %, I Remaining ml, J Gender, K Main accords,
+// L Top notes, M Middle notes, N Base notes, O Longevity, P Sillage, Q Season,
+// R Time of day, S Occasion, T Temperature, U Weather, V Mood, W Notes.
+function rowToPerfume(cols) {
+  const get = (i) => (cols[i] || "").trim();
+  const remainingMlRaw = get(8);
+  const remainingMl = remainingMlRaw === "" ? null : parseFloat(remainingMlRaw.replace(",", "."));
+  return {
+    brand: get(0),
+    name: get(1),
+    concentration: get(2),
+    url: get(3),
+    size: get(4),
+    status: get(5),
+    totalMl: get(6) === "" ? null : parseFloat(get(6).replace(",", ".")),
+    remainingMl: isNaN(remainingMl) ? null : remainingMl,
+    gender: get(9) === "" ? "Unisex" : get(9), // empty defaults to Unisex per §3.1
+    accords: splitMulti(get(10)),
+    topNotes: splitMulti(get(11)),
+    midNotes: splitMulti(get(12)),
+    baseNotes: splitMulti(get(13)),
+    longevity: get(14) || null,
+    sillage: get(15) || null,
+    season: splitMulti(get(16)),
+    timeOfDay: splitMulti(get(17)),
+    occasion: splitMulti(get(18)),
+    temperature: splitMulti(get(19)),
+    weather: splitMulti(get(20)),
+    mood: splitMulti(get(21)),
+    notes: get(22),
+  };
+}
+
+async function fetchSheetPerfumes() {
+  const res = await fetch(SHEET_CSV_URL);
+  if (!res.ok) throw new Error(`Sheet fetch failed: ${res.status}`);
+  const text = await res.text();
+  const rows = parseCsv(text);
+  if (rows.length < 2) throw new Error("Sheet appears empty");
+  // rows[0] is the header row — skip it.
+  const perfumes = rows.slice(1)
+    .map(rowToPerfume)
+    .filter(p => p.name); // skip blank rows
+  return perfumes;
+}
+
+const MOODS = ["Cozy","Clean","Feminine","Energetic","Calm","Bold","Playful","Stressed","Tired","Anxious","Nostalgic","Painful","Angry"];
+const RELAXED_MOODS = ["Cozy","Feminine","Calm","Tired","Nostalgic"];
+const HECTIC_MOODS = ["Stressed","Anxious","Angry"];
+
+function detectTimeOfDay() {
+  const h = new Date().getHours();
+  return (h >= 4 && h < 18) ? "Day" : "Night";
+}
+
+function buildNoteUniverse(perfumes) {
+  const set = new Set();
+  perfumes.forEach(p => {
+    p.accords.forEach(a => set.add(a));
+    p.topNotes.forEach(n => set.add(n));
+    p.midNotes.forEach(n => set.add(n));
+    p.baseNotes.forEach(n => set.add(n));
+  });
+  return Array.from(set).sort();
+}
+
+function eligiblePerfumes(perfumes) {
+  return perfumes.filter(p =>
+    (p.size === "Bottle" || p.size === "Tester") &&
+    p.status !== "NOK" &&
+    p.gender !== "Male" &&
+    p.remainingMl !== 0
+  );
+}
+
+function inferField(perfume, field, pool) {
+  const related = pool.filter(p => p !== perfume && p.accords.some(a => perfume.accords.includes(a)));
+  const counts = {};
+  related.forEach(p => {
+    const val = p[field];
+    if (Array.isArray(val)) val.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
+    else if (val) counts[val] = (counts[val] || 0) + 1;
+  });
+  const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]);
+  return sorted.length ? sorted[0][0] : null;
+}
+
+function scorePerfume(p, answers, pool) {
+  let score = 0;
+  const temperature = answers.temperature || [];
+  const weatherAns = answers.weather || [];
+  const occasionAns = answers.occasion || [];
+  const moodAns = answers.mood || [];
+  const wanted = answers.wantedNotes || [];
+  const unwanted = answers.unwantedNotes || [];
+
+  if (temperature.length) {
+    let temps = p.temperature, inferred = false;
+    if (!temps.length) { const inf = inferField(p, "temperature", pool); if (inf) { temps = [inf]; inferred = true; } }
+    const overlap = temps.filter(t => temperature.includes(t)).length;
+    if (overlap > 0) score += inferred ? overlap : overlap * 2;
+  }
+  if (weatherAns.length) {
+    let weather = p.weather, inferred = false;
+    if (!weather.length) { const inf = inferField(p, "weather", pool); if (inf) { weather = [inf]; inferred = true; } }
+    const overlap = weather.filter(w => weatherAns.includes(w)).length;
+    if (overlap > 0) score += inferred ? overlap : overlap * 2;
+  }
+  if (occasionAns.length) score += p.occasion.filter(o => occasionAns.includes(o)).length * 2;
+  if (answers.stress === "relaxed") {
+    if (p.mood.some(m => RELAXED_MOODS.includes(m))) score += 3;
+    if (p.sillage === "short") score += 2;
+    if (p.sillage === "medium") score += 1;
+  } else if (answers.stress === "hectic") {
+    if (p.mood.some(m => HECTIC_MOODS.includes(m))) score += 3;
+    if (p.sillage === "long") score -= 3;
+  }
+  if (answers.timeOfDay && p.timeOfDay.includes(answers.timeOfDay)) score += 2;
+  if (moodAns.length) score += p.mood.filter(m => moodAns.includes(m)).length * 2;
+  if (wanted.length) {
+    const allNotes = [...p.accords, ...p.topNotes, ...p.midNotes, ...p.baseNotes];
+    score += wanted.filter(n => allNotes.includes(n)).length * 4;
+  }
+  if (unwanted.length) {
+    const allNotes = [...p.accords, ...p.topNotes, ...p.midNotes, ...p.baseNotes];
+    score -= unwanted.filter(n => allNotes.includes(n)).length * 6;
+  }
+  if (answers.loudness) {
+    const map = { short: "subtle", medium: "moderate", long: "beast" };
+    let sillage = p.sillage, inferred = false;
+    if (!sillage) { const inf = inferField(p, "sillage", pool); if (inf) { sillage = inf; inferred = true; } }
+    if (sillage && map[sillage] === answers.loudness) score += inferred ? 1 : 3;
+  }
+  return score;
+}
+
+function generateReason(p, answers) {
+  const reasons = [];
+  if (answers.mood.length) {
+    const overlap = p.mood.filter(m => answers.mood.includes(m));
+    if (overlap.length) reasons.push(`matches your ${overlap.join(", ").toLowerCase()} mood`);
+  }
+  if (answers.weather.length) {
+    const overlap = p.weather.filter(w => answers.weather.includes(w));
+    if (overlap.length) reasons.push(`suits ${overlap.join("/").toLowerCase()} weather`);
+  }
+  if (answers.wantedNotes.length) {
+    const allNotes = [...p.accords, ...p.topNotes, ...p.midNotes, ...p.baseNotes];
+    const overlap = answers.wantedNotes.filter(n => allNotes.includes(n));
+    if (overlap.length) reasons.push(`has the ${overlap.join(", ")} you wanted`);
+  }
+  if (answers.occasion.length) {
+    const overlap = p.occasion.filter(o => answers.occasion.includes(o));
+    if (overlap.length) reasons.push(`great for ${overlap.join("/").toLowerCase()}`);
+  }
+  if (!reasons.length) reasons.push("a solid all-around match for today");
+  return reasons.slice(0, 2).join(" and ");
+}
+
+function PillGroup({ options, selected, onToggle }) {
+  return (
+    <div className="pillgroup">
+      {options.map(opt => (
+        <button key={opt} type="button" className={"pill" + (selected.includes(opt) ? " selected" : "")} onClick={() => onToggle(opt)}>
+          {opt}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Section({ title, subtitle, children }) {
+  return (
+    <div style={{ marginBottom: "1.75rem" }}>
+      <h3>{title}</h3>
+      {subtitle ? <p className="subtitle">{subtitle}</p> : <div style={{ marginBottom: 12 }} />}
+      {children}
+    </div>
+  );
+}
+
+function App() {
+  const [step, setStep] = useState("quiz");
+  const [perfumes, setPerfumes] = useState(TEST_PERFUMES); // starts with fallback test data
+  const [dataSource, setDataSource] = useState("test"); // "test" | "live" | "error"
+  const [loadError, setLoadError] = useState(null);
+  const noteUniverse = useMemo(() => buildNoteUniverse(perfumes), [perfumes]);
+  const [temperature, setTemperature] = useState([]);
+  const [weather, setWeather] = useState([]);
+  const [occasion, setOccasion] = useState([]);
+  const [stress, setStress] = useState("normal");
+  const [timeOfDay, setTimeOfDay] = useState(detectTimeOfDay());
+  const [mood, setMood] = useState([]);
+  const [wantedNotes, setWantedNotes] = useState([]);
+  const [unwantedNotes, setUnwantedNotes] = useState([]);
+  const [loudness, setLoudness] = useState(null);
+  const [familiarity, setFamiliarity] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
+
+  const refreshData = async () => {
+    setIsRefreshing(true);
+    setLoadError(null);
+    try {
+      const live = await fetchSheetPerfumes();
+      if (live.length === 0) throw new Error("No rows found in sheet");
+      setPerfumes(live);
+      setDataSource("live");
+      setLastUpdated(new Date().toLocaleTimeString());
+    } catch (err) {
+      console.error("Sheet fetch failed, keeping previous data:", err);
+      setLoadError(err.message || "Couldn't reach the sheet");
+      setDataSource(prev => prev === "live" ? "live" : "error");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Fetch live data once on first load.
+  useEffect(() => { refreshData(); }, []);
+
+  const toggle = (setter) => (item) => setter(prev => prev.includes(item) ? prev.filter(x => x !== item) : [...prev, item]);
+
+  const resetAll = () => {
+    setTemperature([]);
+    setWeather([]);
+    setOccasion([]);
+    setStress("normal");
+    setTimeOfDay(detectTimeOfDay());
+    setMood([]);
+    setWantedNotes([]);
+    setUnwantedNotes([]);
+    setLoudness(null);
+    setFamiliarity(null);
+    setStep("quiz");
+  };
+
+  const results = useMemo(() => {
+    const eligible = eligiblePerfumes(perfumes);
+    const answers = { temperature, weather, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity };
+    let pool = eligible;
+    if (familiarity === "new") {
+      const untried = eligible.filter(p => p.status === "");
+      const scored = untried.map(p => ({ p, s: scorePerfume(p, answers, eligible) })).filter(x => x.s > 0);
+      pool = scored.length ? untried : eligible;
+    } else if (familiarity === "testers") {
+      pool = eligible.filter(p => p.size === "Tester" && p.status !== "");
+    } else if (familiarity === "bottles") {
+      pool = eligible.filter(p => p.size === "Bottle" && p.status !== "");
+    }
+    const scored = pool.map(p => ({ p, score: scorePerfume(p, answers, eligible) }));
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, 5);
+  }, [perfumes, temperature, weather, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity]);
+
+  if (step === "results") {
+    return (
+      <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem", flexWrap: "wrap", gap: 8 }}>
+          <h2>Today's matches</h2>
+          <div style={{ display: "flex", gap: 14 }}>
+            <button type="button" className="link-btn" onClick={() => setStep("quiz")}>&larr; Edit answers</button>
+            <button type="button" className="link-btn" onClick={resetAll}>Start over</button>
+            <button type="button" className="link-btn" onClick={refreshData} disabled={isRefreshing}>
+              {isRefreshing ? "Refreshing…" : "🔄 Refresh data"}
+            </button>
+          </div>
+        </div>
+        {results.length === 0 && <p style={{ color: "var(--text-secondary)" }}>No perfumes matched — try loosening some answers.</p>}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {results.map(({ p, score }, i) => (
+            <div key={p.name} className="card">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                <div>
+                  <p style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{p.brand} — {p.name}</p>
+                  <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-secondary)" }}>
+                    {generateReason(p, { temperature, weather, occasion, mood, wantedNotes })}
+                  </p>
+                </div>
+                <span className="tag" style={{ fontWeight: 600 }}>#{i + 1} · score {score}</span>
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+                {p.accords.slice(0, 4).map(a => <span key={a} className="tag">{a}</span>)}
+                <span className="tag">{p.remainingMl}ml left</span>
+                {p.status === "" && <span className="tag untried">untried</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h1>Perfumy</h1>
+      <p className="subtitle" style={{ marginBottom: 8 }}>What's today calling for? Everything below is optional.</p>
+      <p style={{ fontSize: 12, marginBottom: "1.75rem", color: dataSource === "live" ? "#5a8a5e" : dataSource === "error" ? "#b4543f" : "var(--text-tertiary)" }}>
+        {dataSource === "live" && `✓ Live collection loaded (${perfumes.length} perfumes)${lastUpdated ? " · " + lastUpdated : ""}`}
+        {dataSource === "test" && isRefreshing && "Loading your collection…"}
+        {dataSource === "test" && !isRefreshing && "Using sample data — click Refresh data below to load your sheet"}
+        {dataSource === "error" && `⚠ Couldn't load sheet (${loadError}) — showing last known data`}
+      </p>
+
+      <Section title="Weather">
+        <p className="label">Temperature</p>
+        <PillGroup options={["Cold","Cool","Warm","Hot"]} selected={temperature} onToggle={toggle(setTemperature)} />
+        <p className="label" style={{ marginTop: 12 }}>Condition</p>
+        <PillGroup options={["Sun","Clouds","Rain","Snow"]} selected={weather} onToggle={toggle(setWeather)} />
+      </Section>
+
+      <Section title="Occasion & stress">
+        <p className="label">Plan for the day</p>
+        <PillGroup options={["Home","Walk","Shopping","Office","Sport","Special"]} selected={occasion} onToggle={toggle(setOccasion)} />
+        <p className="label" style={{ marginTop: 12 }}>How stressful?</p>
+        <PillGroup options={["Relaxed","Normal","Hectic"]} selected={[stress === "relaxed" ? "Relaxed" : stress === "hectic" ? "Hectic" : "Normal"]} onToggle={(v) => setStress(v.toLowerCase())} />
+      </Section>
+
+      <Section title="Time of day" subtitle={`Auto-detected as ${detectTimeOfDay()} — tap to change`}>
+        <PillGroup options={["Day","Night"]} selected={[timeOfDay]} onToggle={(v) => setTimeOfDay(v)} />
+      </Section>
+
+      <Section title="Mood">
+        <PillGroup options={MOODS} selected={mood} onToggle={toggle(setMood)} />
+      </Section>
+
+      <Section title="Preferences" subtitle="Optional — but weighted highly when filled in">
+        <p className="label">I want notes/accords like...</p>
+        <PillGroup options={noteUniverse} selected={wantedNotes} onToggle={toggle(setWantedNotes)} />
+        <p className="label" style={{ marginTop: 14 }}>I don't want...</p>
+        <PillGroup options={noteUniverse} selected={unwantedNotes} onToggle={toggle(setUnwantedNotes)} />
+        <p className="label" style={{ marginTop: 14 }}>How loud?</p>
+        <PillGroup options={["subtle","moderate","beast"]} selected={loudness ? [loudness] : []} onToggle={(v) => setLoudness(loudness === v ? null : v)} />
+        <p className="label" style={{ marginTop: 14 }}>Familiarity</p>
+        <PillGroup
+          options={["Something new","From testers","From full bottles","No preference"]}
+          selected={familiarity ? [familiarity === "new" ? "Something new" : familiarity === "testers" ? "From testers" : familiarity === "bottles" ? "From full bottles" : "No preference"] : []}
+          onToggle={(v) => {
+            const map = { "Something new": "new", "From testers": "testers", "From full bottles": "bottles", "No preference": null };
+            setFamiliarity(prev => prev === map[v] ? null : map[v]);
+          }}
+        />
+      </Section>
+
+      <button type="button" className="primary-btn" onClick={() => setStep("results")}>Find my scent</button>
+      <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 10 }}>
+        <button type="button" className="link-btn" onClick={resetAll}>Start over</button>
+        <button type="button" className="link-btn" onClick={refreshData} disabled={isRefreshing}>
+          {isRefreshing ? "Refreshing…" : "🔄 Refresh data"}
+        </button>
+      </div>
+      {lastUpdated && (
+        <p style={{ textAlign: "center", fontSize: 11, color: "var(--text-tertiary)", marginTop: 6 }}>
+          Collection last loaded: {lastUpdated}
+        </p>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
