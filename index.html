@@ -105,7 +105,7 @@ const { useState, useMemo, useEffect } = React;
 
 // Bump this on every deploy so it's easy to confirm which version is actually live
 // after uploading to GitHub (e.g. after a hard-refresh, check this matches what you expect).
-const APP_VERSION = "v3";
+const APP_VERSION = "v8";
 const APP_VERSION_DATE = "2026-06-21";
 
 // ---------- TEST DATA ----------
@@ -367,6 +367,16 @@ function detectTimeOfDay() {
 
 // Meteorological seasons (fixed calendar months, not equinox/solstice dates).
 const SEASON_ORDER = ["Winter", "Spring", "Summer", "Autumn"]; // cyclical order, Winter wraps to Spring etc.
+
+// Temperature is LINEAR (no wraparound), unlike Season's cyclical wheel: Cold and Hot
+// are true opposite extremes, not adjacent like Winter/Autumn are on the season wheel.
+const TEMPERATURE_ORDER = ["Cold", "Cool", "Warm", "Hot"];
+function temperatureDistance(a, b) {
+  const ia = TEMPERATURE_ORDER.indexOf(a);
+  const ib = TEMPERATURE_ORDER.indexOf(b);
+  if (ia === -1 || ib === -1) return null;
+  return Math.abs(ia - ib); // 0-3, no wrap
+}
 function monthToSeason(month) {
   // month: 0-11 (JS Date convention)
   if (month === 11 || month === 0 || month === 1) return "Winter"; // Dec, Jan, Feb
@@ -384,6 +394,27 @@ function normalizeSeason(s) {
   const lower = s.trim().toLowerCase();
   const match = SEASON_ORDER.find(opt => opt.toLowerCase() === lower);
   return match || s; // fall back to original if it's some unexpected value
+}
+
+// Cyclical distance between two seasons on the Winter->Spring->Summer->Autumn->(Winter) wheel.
+// 0 = exact match, 1 = adjacent (e.g. Winter/Spring), 2 = opposite (e.g. Winter/Summer).
+// Returns null if either season isn't recognized.
+function seasonDistance(a, b) {
+  const ia = SEASON_ORDER.indexOf(a);
+  const ib = SEASON_ORDER.indexOf(b);
+  if (ia === -1 || ib === -1) return null;
+  const diff = Math.abs(ia - ib);
+  return Math.min(diff, SEASON_ORDER.length - diff); // wrap-around distance, max possible is 2
+}
+
+// Given the perfume's own season tags, checks whether it already "spans" the gap between
+// two seasons that are cyclically opposite (distance 2) — e.g. tagged both Winter AND Summer,
+// like a perfume explicitly marketed/described as working in extremes. If so, the mismatch
+// penalty should be skipped entirely for that perfume, since it has explicitly declared
+// itself season-transcending rather than simply having incomplete data.
+function perfumeSpansOpposite(perfumeSeasons, seasonA, seasonB) {
+  if (seasonDistance(seasonA, seasonB) !== 2) return false; // only relevant for opposite pairs
+  return perfumeSeasons.includes(seasonA) && perfumeSeasons.includes(seasonB);
 }
 
 // Returns { current, options, isTransition } where:
@@ -453,7 +484,7 @@ function isWholeWordMatch(haystack, needle) {
 // "iris" vs "iris leaf" (root/flower vs. green leaf facet),
 // "cedar" vs "cedarwood"-style... ("wood" itself, e.g. "sandalwood" already reads as one
 // word so it isn't affected; this guards constructions like "oak wood" / "cedar wood").
-const PROTECTED_MODIFIERS = ["leaf", "leaves", "wood", "milk", "juice"];
+const PROTECTED_MODIFIERS = ["leaf", "leaves", "wood", "milk", "juice", "nectar"];
 
 // Given a shorter note fully contained (as a whole word) in a longer note, returns true
 // if the longer note's *extra* word(s) are just a protected modifier — meaning these two
@@ -467,13 +498,32 @@ function isProtectedCompound(shorter, longer) {
   return PROTECTED_MODIFIERS.includes(remainder);
 }
 
+// Returns the last whitespace-separated word of a note string, lowercased — used to
+// detect "X rose" / "Y rose" / "Z rose" style variants that share a common base note
+// as a SUFFIX rather than one string containing the other entirely (e.g. "Damask rose",
+// "French rose", and "Grasse rose" don't contain each other, but all end in "rose").
+function lastWord(note) {
+  const parts = note.trim().toLowerCase().split(/\s+/);
+  return parts[parts.length - 1];
+}
+
+// Checks whether a note's last word is itself a protected modifier (e.g. "cedarwood"
+// and "sandalwood" both end in "wood", but "wood" is a facet-changing modifier, not a
+// legitimate shared base note — so these should NOT be grouped by shared-last-word).
+function lastWordIsProtected(note) {
+  return PROTECTED_MODIFIERS.includes(lastWord(note));
+}
+
 // Groups note strings that contain one another as a whole word (e.g. "Australian
 // sandalwood" + "sandalwood" -> one group), picking the shortest string as the
-// canonical/display label. Returns { displayList, aliasToCanonical } where
-// aliasToCanonical maps every raw note string (including the canonical one itself)
-// to its canonical form, for use when scoring/matching.
-// Compounds matching PROTECTED_MODIFIERS (e.g. "coconut milk", "iris leaf") are
-// deliberately kept separate from their shorter base note.
+// canonical/display label. Also groups notes that share a common trailing/base word
+// even when neither contains the other (e.g. "Damask rose" + "French rose" + "Grasse
+// rose" -> grouped under "rose", even though "rose" alone may never appear in the data).
+// Returns { displayList, aliasToCanonical } where aliasToCanonical maps every raw note
+// string (including the canonical one itself) to its canonical form, for use when
+// scoring/matching.
+// Compounds matching PROTECTED_MODIFIERS (e.g. "coconut milk", "iris leaf", "cedarwood")
+// are deliberately excluded from BOTH grouping rules above.
 function buildNormalizedNoteUniverse(perfumes) {
   const raw = buildNoteUniverse(perfumes);
   const groups = []; // each group: array of raw strings that are considered "the same note"
@@ -484,13 +534,30 @@ function buildNormalizedNoteUniverse(perfumes) {
     for (const group of groups) {
       const matchesGroup = group.some(g => {
         const gLower = g.toLowerCase();
+
+        // Rule 1: containment (e.g. "sandalwood" inside "Australian sandalwood").
         const aContainsB = isWholeWordMatch(lower, gLower);
         const bContainsA = isWholeWordMatch(gLower, lower);
-        if (!aContainsB && !bContainsA) return false;
-        // Determine which is shorter/longer to check the protected-modifier rule.
-        const [shorter, longer] = note.length <= g.length ? [note, g] : [g, note];
-        if (isProtectedCompound(shorter, longer)) return false; // keep separate
-        return true;
+        if (aContainsB || bContainsA) {
+          const [shorter, longer] = note.length <= g.length ? [note, g] : [g, note];
+          return !isProtectedCompound(shorter, longer);
+        }
+
+        // Rule 2: shared last word (e.g. "Damask rose" + "French rose" both end "rose"),
+        // but only when that shared word is itself multi-word-modified on both sides
+        // (so a bare single-word note like "rose" matching itself is just Rule 1's
+        // territory; this rule is specifically for "X base" / "Y base" pairs) and the
+        // shared word isn't a protected modifier.
+        const noteWords = lower.split(/\s+/);
+        const gWords = gLower.split(/\s+/);
+        if (noteWords.length > 1 && gWords.length > 1) {
+          const noteLast = noteWords[noteWords.length - 1];
+          const gLast = gWords[gWords.length - 1];
+          if (noteLast === gLast && !PROTECTED_MODIFIERS.includes(noteLast)) {
+            return true;
+          }
+        }
+        return false;
       });
       if (matchesGroup) {
         group.push(note);
@@ -504,8 +571,23 @@ function buildNormalizedNoteUniverse(perfumes) {
   const aliasToCanonical = {};
   const displayList = [];
   groups.forEach(group => {
-    // Canonical = shortest string in the group (simplest/most general form).
-    const canonical = group.reduce((a, b) => (b.length < a.length ? b : a));
+    // Canonical label: if every member shares a common last word via Rule 2 (i.e. this
+    // group wasn't unified by simple containment), use that shared base word as the
+    // canonical label (e.g. "rose"), even if it never appears alone in the data. Otherwise
+    // (Rule 1 containment groups), fall back to the shortest string as before.
+    let canonical;
+    if (group.length > 1) {
+      const words = group.map(n => n.trim().toLowerCase().split(/\s+/));
+      const allMultiWord = words.every(w => w.length > 1);
+      const lastWords = words.map(w => w[w.length - 1]);
+      const allSameLastWord = lastWords.every(w => w === lastWords[0]);
+      if (allMultiWord && allSameLastWord) {
+        canonical = lastWords[0];
+      }
+    }
+    if (!canonical) {
+      canonical = group.reduce((a, b) => (b.length < a.length ? b : a));
+    }
     displayList.push(canonical);
     group.forEach(member => { aliasToCanonical[member] = canonical; });
   });
@@ -548,53 +630,114 @@ function scorePerfume(p, answers, pool, aliasToCanonical) {
   const wanted = answers.wantedNotes || [];
   const unwanted = answers.unwantedNotes || [];
 
-  // Season: outranks Temperature/Weather (§5.1a). If the user left Season untouched,
-  // fall back to today's actual auto-detected season as the effective value — this is
-  // the one field where "no tap" still means something, not "ignore this dimension."
+  // --- Tier 1: Season (cyclical distance model, confirmed design) ---
+  // For each selected season, find the perfume's closest tagged season (minimum cyclical
+  // distance around Winter->Spring->Summer->Autumn->Winter). 0 = exact match (+10 direct,
+  // +5 inferred), 1 = adjacent season like Winter/Spring (+3 direct, +1 inferred, treated
+  // as a small reward rather than neutral), 2 = opposite season like Winter/Summer (-10),
+  // UNLESS the perfume's own season tags already span both sides of that gap (e.g. tagged
+  // both Winter and Summer, like a perfume explicitly described as working in extremes) —
+  // in that case the mismatch penalty is skipped entirely for that perfume.
   const effectiveSeason = ((answers.season && answers.season.length) ? answers.season : (answers.seasonDefault ? [answers.seasonDefault] : [])).map(normalizeSeason);
   if (effectiveSeason.length) {
     let seasons = (p.season || []).map(normalizeSeason), inferred = false;
     if (!seasons.length) { const inf = inferField(p, "season", pool); if (inf) { seasons = [normalizeSeason(inf)]; inferred = true; } }
     if (seasons.length) {
-      const overlap = seasons.some(s => effectiveSeason.includes(s));
-      if (overlap) {
-        score += inferred ? 2 : 4; // stronger than the +2 weather/temp bonus
-      } else {
-        score -= inferred ? 4 : 8; // strong penalty, dominates weather/temp when they conflict
+      let minDist = null;
+      effectiveSeason.forEach(sel => {
+        seasons.forEach(tag => {
+          const d = seasonDistance(sel, tag);
+          if (d !== null && (minDist === null || d < minDist)) minDist = d;
+        });
+      });
+      if (minDist === 0) {
+        score += inferred ? 5 : 10;
+      } else if (minDist === 1) {
+        score += inferred ? 1 : 3;
+      } else if (minDist === 2) {
+        // Check the span-exception: does the perfume's own tags cover both the selected
+        // season and its opposite? If so, no penalty.
+        const spans = effectiveSeason.some(sel => {
+          const opposite = SEASON_ORDER[(SEASON_ORDER.indexOf(sel) + 2) % SEASON_ORDER.length];
+          return perfumeSpansOpposite(seasons, sel, opposite);
+        });
+        if (!spans) score -= 10;
       }
     }
     // If the perfume has no season data at all and inference found nothing, skip — no
     // information either way, so we neither reward nor penalize.
   }
 
+  // --- Tier 2: Temperature (single-select). Reward-only for middle selections (Cool/Warm),
+  // but distance-based penalty kicks in when the EXTREME values (Hot or Cold) are selected
+  // — confirmed by the user after seeing a sweet/light summer-tagged perfume (Poppy, tagged
+  // Warm/Cool with no Hot tag) still rank highly for a "Hot" query purely because nothing
+  // was penalizing the temperature mismatch, only Season/Weather matches were rewarding it. ---
   if (temperature.length) {
     let temps = p.temperature, inferred = false;
     if (!temps.length) { const inf = inferField(p, "temperature", pool); if (inf) { temps = [inf]; inferred = true; } }
-    const overlap = temps.filter(t => temperature.includes(t)).length;
-    if (overlap > 0) score += inferred ? overlap : overlap * 2;
+    if (temps.length) {
+      const selectedIsExtreme = temperature.some(t => t === "Hot" || t === "Cold");
+      let minDist = null;
+      temperature.forEach(sel => {
+        temps.forEach(tag => {
+          const d = temperatureDistance(sel, tag);
+          if (d !== null && (minDist === null || d < minDist)) minDist = d;
+        });
+      });
+      if (minDist !== null) {
+        if (minDist === 0) {
+          score += inferred ? 3 : 6;
+        } else if (selectedIsExtreme) {
+          // Distance-penalty logic only applies when Hot or Cold was selected.
+          if (minDist === 1) score += inferred ? 1 : 3;
+          else if (minDist === 2) score -= 5;
+          else if (minDist === 3) score -= 10;
+        }
+        // If Cool/Warm was selected and it's not an exact match, no reward and no
+        // penalty — matches the original reward-only behavior for middle selections.
+      }
+    }
   }
+
+  // --- Tier 3: Weather/Condition (single-select, flat weight) ---
   if (weatherAns.length) {
     let weather = p.weather, inferred = false;
     if (!weather.length) { const inf = inferField(p, "weather", pool); if (inf) { weather = [inf]; inferred = true; } }
-    const overlap = weather.filter(w => weatherAns.includes(w)).length;
-    if (overlap > 0) score += inferred ? overlap : overlap * 2;
+    const matched = weather.some(w => weatherAns.includes(w));
+    if (matched) score += inferred ? 2 : 4;
   }
-  if (occasionAns.length) score += p.occasion.filter(o => occasionAns.includes(o)).length * 2;
-  if (answers.stress === "relaxed") {
-    if (p.mood.some(m => RELAXED_MOODS.includes(m))) score += 3;
-    if (p.sillage === "short") score += 2;
-    if (p.sillage === "medium") score += 1;
-  } else if (answers.stress === "hectic") {
-    if (p.mood.some(m => HECTIC_MOODS.includes(m))) score += 3;
-    if (p.sillage === "long") score -= 3;
-  }
+
+  // --- Tier 4: Occasion (still multi-select) ---
+  if (occasionAns.length) score += p.occasion.filter(o => occasionAns.includes(o)).length * 3;
+
+  // --- Tier 5: Time of day ---
   if (answers.timeOfDay && p.timeOfDay.includes(answers.timeOfDay)) score += 2;
-  if (moodAns.length) score += p.mood.filter(m => moodAns.includes(m)).length * 2;
+
+  // --- Tier 6: Mood (lowest priority of the six, multi-select) ---
+  if (moodAns.length) score += p.mood.filter(m => moodAns.includes(m)).length * 1;
+
+  // --- Stress: a modifier that works through Mood/Sillage rather than its own tier;
+  // scaled down to match Mood's now-lower priority. ---
+  if (answers.stress === "relaxed") {
+    if (p.mood.some(m => RELAXED_MOODS.includes(m))) score += 1;
+    if (p.sillage === "short") score += 1;
+    else if (p.sillage === "medium") score += 0.5;
+  } else if (answers.stress === "hectic") {
+    if (p.mood.some(m => HECTIC_MOODS.includes(m))) score += 1;
+    if (p.sillage === "long") score -= 1;
+  }
+
+  // --- Preferences: wanted/unwanted notes. Wanted notes reverted back to +4 (their
+  // original pre-session value) per explicit user request — the "right below the trio"
+  // repositioning to +3.5 was tried but then rolled back for the wanted side specifically.
+  // Unwanted notes remain escalated to approach (but stay just under) Season's mismatch
+  // severity (-10) — a disliked note should hit nearly as hard as a wrong-season suggestion. ---
   if (wanted.length || unwanted.length) {
     const rawNotes = [...p.accords, ...p.topNotes, ...p.midNotes, ...p.baseNotes];
     const allNotes = aliasToCanonical ? normalizeNotes(rawNotes, aliasToCanonical) : rawNotes;
     if (wanted.length) score += wanted.filter(n => allNotes.includes(n)).length * 4;
-    if (unwanted.length) score -= unwanted.filter(n => allNotes.includes(n)).length * 6;
+    if (unwanted.length) score -= unwanted.filter(n => allNotes.includes(n)).length * 9;
   }
   if (answers.loudness) {
     const map = { short: "subtle", medium: "moderate", long: "beast" };
