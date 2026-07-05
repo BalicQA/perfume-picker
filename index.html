@@ -103,10 +103,46 @@
 
 const { useState, useMemo, useEffect } = React;
 
-// Bump this on every deploy so it's easy to confirm which version is actually live
-// after uploading to GitHub (e.g. after a hard-refresh, check this matches what you expect).
-const APP_VERSION = "v1.0";
-const APP_VERSION_DATE = "2026-06-21";
+// Versioning: Major version is manual (you control this), minor auto-increments on each new deployment.
+// INSTRUCTIONS: To bump major version, update APP_VERSION_MAJOR below and minor will reset to 0.
+const APP_VERSION_MAJOR = 1;
+const APP_VERSION_MINOR_BASE = 1;
+const APP_VERSION_DATE = "2026-07-06";
+
+// Computes the current version, auto-incrementing minor on deployment.
+// Uses localStorage to detect new deployments (by date change).
+function getComputedVersion() {
+  const stored = localStorage.getItem("app_version_state");
+  let major = APP_VERSION_MAJOR;
+  let minor = APP_VERSION_MINOR_BASE;
+  
+  if (stored) {
+    const { storedMajor, storedMinor, storedDate } = JSON.parse(stored);
+    
+    // If major version changed in code, reset minor to 0
+    if (storedMajor !== APP_VERSION_MAJOR) {
+      major = APP_VERSION_MAJOR;
+      minor = 0;
+    } else if (storedDate !== APP_VERSION_DATE) {
+      // New deployment (date changed) — increment minor
+      minor = storedMinor + 1;
+    } else {
+      // Same deployment as stored
+      minor = storedMinor;
+    }
+  }
+  
+  // Save the computed version for next load
+  localStorage.setItem("app_version_state", JSON.stringify({
+    storedMajor: major,
+    storedMinor: minor,
+    storedDate: APP_VERSION_DATE
+  }));
+  
+  return { major, minor, display: `v${major}.${minor}` };
+}
+
+const APP_VERSION = getComputedVersion();
 
 // ---------- TEST DATA ----------
 // A curated set of 14 edge-case perfumes (provided by the user, June 2026), deliberately
@@ -936,14 +972,27 @@ function App() {
     }
     const scored = pool.map(p => ({ p, score: scorePerfume(p, answers, eligible, aliasToCanonical) }));
     scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, 5);
+    
+    // Get all distinct scores in descending order
+    const distinctScores = [...new Set(scored.map(s => s.score))].sort((a, b) => b - a);
+    
+    // Try top 3 distinct scores, expand downward until >= 5 results
+    let numScoresToInclude = Math.min(3, distinctScores.length);
+    while (numScoresToInclude <= distinctScores.length) {
+      const threshold = distinctScores[numScoresToInclude - 1];
+      const filtered = scored.filter(s => s.score >= threshold);
+      if (filtered.length >= 5) return filtered;
+      numScoresToInclude++;
+    }
+    
+    return scored; // fallback: return all if still < 5 after exhausting scores
   }, [perfumes, temperature, weather, season, seasonCtx, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity, aliasToCanonical]);
 
   if (step === "results") {
     return (
       <div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem", flexWrap: "wrap", gap: 8 }}>
-          <h2>Today's matches</h2>
+          <h2>Today's {results.length} matches</h2>
           <div style={{ display: "flex", gap: 14 }}>
             <button type="button" className="link-btn" onClick={() => setStep("quiz")}>&larr; Edit answers</button>
             <button type="button" className="link-btn" onClick={resetAll}>Start over</button>
@@ -986,7 +1035,7 @@ function App() {
         {dataSource === "test" && isRefreshing && "Loading your collection…"}
         {dataSource === "test" && !isRefreshing && "Using sample data — click Refresh data below to load your sheet"}
         {dataSource === "error" && `⚠ Couldn't load sheet (${loadError}) — showing last known data`}
-        {` · ${APP_VERSION} (${APP_VERSION_DATE})`}
+        {` · ${APP_VERSION.display} (${APP_VERSION_DATE})`}
       </p>
 
       <Section title="Weather">
