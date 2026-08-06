@@ -106,8 +106,8 @@ const { useState, useMemo, useEffect } = React;
 // Versioning: Major version is manual (you control this), minor auto-increments on each new deployment.
 // INSTRUCTIONS: To bump major version, update APP_VERSION_MAJOR below and minor will reset to 0.
 const APP_VERSION_MAJOR = 1;
-const APP_VERSION_MINOR_BASE = 1;
-const APP_VERSION_DATE = "2026-07-06";
+const APP_VERSION_MINOR_BASE = 0;
+const APP_VERSION_DATE = "2026-08-07";
 
 // Computes the current version, auto-incrementing minor on deployment.
 // Uses localStorage to detect new deployments (by date change).
@@ -704,6 +704,19 @@ function scorePerfume(p, answers, pool, aliasToCanonical) {
     // information either way, so we neither reward nor penalize.
   }
 
+  // --- Last Call: nudge perfumes tagged with the outgoing season but NOT the incoming one,
+  // during a season transition window, once the user opts in by selecting the outgoing
+  // season and checking the box. Bonus matches Temperature's exact-match weight (+6).
+  // Perfumes that already span both seasons (e.g. Full Incense, tagged Winter+Summer) don't
+  // get the bonus — they're not "running out" the same way a single-season scent is. No
+  // similarity-inference variant for this one; only applies to explicitly tagged seasons. ---
+  if (answers.lastCall && answers.seasonOutgoing && answers.seasonIncoming) {
+    const seasons = (p.season || []).map(normalizeSeason);
+    if (seasons.includes(answers.seasonOutgoing) && !seasons.includes(answers.seasonIncoming)) {
+      score += 6;
+    }
+  }
+
   // --- Tier 2: Temperature (single-select). Reward-only for middle selections (Cool/Warm),
   // but distance-based penalty kicks in when the EXTREME values (Hot or Cold) are selected
   // — confirmed by the user after seeing a sweet/light summer-tagged perfume (Poppy, tagged
@@ -790,6 +803,12 @@ function generateReason(p, answers, aliasToCanonical) {
   if (effectiveSeason.length && p.season && p.season.length) {
     const overlap = p.season.filter(s => effectiveSeason.includes(normalizeSeason(s)));
     if (overlap.length) reasons.push(`right for ${overlap.join("/").toLowerCase()}`);
+  }
+  if (answers.lastCall && answers.seasonOutgoing && answers.seasonIncoming && p.season && p.season.length) {
+    const seasons = p.season.map(normalizeSeason);
+    if (seasons.includes(answers.seasonOutgoing) && !seasons.includes(answers.seasonIncoming)) {
+      reasons.unshift(`last call for ${answers.seasonOutgoing.toLowerCase()}`);
+    }
   }
   if (answers.mood.length) {
     const overlap = p.mood.filter(m => answers.mood.includes(m));
@@ -896,7 +915,15 @@ function App() {
   const [temperature, setTemperature] = useState([]);
   const [weather, setWeather] = useState([]);
   const seasonCtx = useMemo(() => detectSeasonContext(), []); // computed once per app load
+  // Last Call is only meaningful in a real two-season transition window.
+  const outgoingSeason = (seasonCtx.isTransition && seasonCtx.options.length === 2) ? seasonCtx.options[0] : null;
+  const incomingSeason = (seasonCtx.isTransition && seasonCtx.options.length === 2) ? seasonCtx.options[1] : null;
   const [season, setSeason] = useState([]); // user's explicit picks; empty = use seasonCtx.current as default
+  const [lastCall, setLastCall] = useState(false); // "Last Call" checkbox — see §5.1c
+  // Last Call only "counts" once the outgoing season is explicitly selected — this derives
+  // the effective on/off state from the checkbox + selection, rather than syncing two pieces
+  // of state, so unchecking the outgoing season automatically disarms it too.
+  const effectiveLastCall = Boolean(lastCall && outgoingSeason && season.includes(outgoingSeason));
   const [occasion, setOccasion] = useState([]);
   const [stress, setStress] = useState("normal");
   const [timeOfDay, setTimeOfDay] = useState(detectTimeOfDay());
@@ -947,12 +974,13 @@ function App() {
     setUnwantedNotes([]);
     setLoudness(null);
     setFamiliarity(null);
+    setLastCall(false);
     setStep("quiz");
   };
 
   const results = useMemo(() => {
     const eligible = eligiblePerfumes(perfumes);
-    const answers = { temperature, weather, season, seasonDefault: seasonCtx.current, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity };
+    const answers = { temperature, weather, season, seasonDefault: seasonCtx.current, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity, lastCall: effectiveLastCall, seasonOutgoing: outgoingSeason, seasonIncoming: incomingSeason };
     let pool = eligible;
     if (familiarity === "new") {
       const untried = eligible.filter(p => p.status === "");
@@ -972,27 +1000,14 @@ function App() {
     }
     const scored = pool.map(p => ({ p, score: scorePerfume(p, answers, eligible, aliasToCanonical) }));
     scored.sort((a, b) => b.score - a.score);
-    
-    // Get all distinct scores in descending order
-    const distinctScores = [...new Set(scored.map(s => s.score))].sort((a, b) => b - a);
-    
-    // Try top 3 distinct scores, expand downward until >= 5 results
-    let numScoresToInclude = Math.min(3, distinctScores.length);
-    while (numScoresToInclude <= distinctScores.length) {
-      const threshold = distinctScores[numScoresToInclude - 1];
-      const filtered = scored.filter(s => s.score >= threshold);
-      if (filtered.length >= 5) return filtered;
-      numScoresToInclude++;
-    }
-    
-    return scored; // fallback: return all if still < 5 after exhausting scores
-  }, [perfumes, temperature, weather, season, seasonCtx, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity, aliasToCanonical]);
+    return scored.slice(0, 5);
+  }, [perfumes, temperature, weather, season, seasonCtx, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity, effectiveLastCall, outgoingSeason, incomingSeason, aliasToCanonical]);
 
   if (step === "results") {
     return (
       <div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem", flexWrap: "wrap", gap: 8 }}>
-          <h2>Today's {results.length} matches</h2>
+          <h2>Today's matches</h2>
           <div style={{ display: "flex", gap: 14 }}>
             <button type="button" className="link-btn" onClick={() => setStep("quiz")}>&larr; Edit answers</button>
             <button type="button" className="link-btn" onClick={resetAll}>Start over</button>
@@ -1009,7 +1024,7 @@ function App() {
                 <div>
                   <p style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{p.brand} — {p.name}</p>
                   <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-secondary)" }}>
-                    {generateReason(p, { temperature, weather, season, seasonDefault: seasonCtx.current, occasion, mood, wantedNotes }, aliasToCanonical)}
+                    {generateReason(p, { temperature, weather, season, seasonDefault: seasonCtx.current, occasion, mood, wantedNotes, lastCall: effectiveLastCall, seasonOutgoing: outgoingSeason, seasonIncoming: incomingSeason }, aliasToCanonical)}
                   </p>
                 </div>
                 <span className="tag" style={{ fontWeight: 600 }}>#{i + 1} · score {score}</span>
@@ -1054,6 +1069,24 @@ function App() {
         }
       >
         <PillGroup options={seasonCtx.options} selected={season} onToggle={toggle(setSeason)} />
+        {outgoingSeason && (
+          <div style={{ marginTop: 12 }}>
+            <button
+              type="button"
+              className={"pill" + (effectiveLastCall ? " selected" : "")}
+              onClick={() => setLastCall(v => !v)}
+              disabled={!season.includes(outgoingSeason)}
+              style={!season.includes(outgoingSeason) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            >
+              🌅 Last Call for {outgoingSeason}
+            </button>
+            <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "6px 0 0" }}>
+              {season.includes(outgoingSeason)
+                ? `Gives ${outgoingSeason.toLowerCase()}-only scents a boost before they're out of season.`
+                : `Select ${outgoingSeason} above to enable Last Call.`}
+            </p>
+          </div>
+        )}
       </Section>
 
       <Section title="Occasion & stress">
