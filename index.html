@@ -106,8 +106,8 @@ const { useState, useMemo, useEffect } = React;
 // Versioning: Major version is manual (you control this), minor auto-increments on each new deployment.
 // INSTRUCTIONS: To bump major version, update APP_VERSION_MAJOR below and minor will reset to 0.
 const APP_VERSION_MAJOR = 1;
-const APP_VERSION_MINOR_BASE = 0;
-const APP_VERSION_DATE = "2026-08-07";
+const APP_VERSION_MINOR_BASE = 3;
+const APP_VERSION_DATE = "2026-08-09";
 
 // Computes the current version, auto-incrementing minor on deployment.
 // Uses localStorage to detect new deployments (by date change).
@@ -1000,14 +1000,27 @@ function App() {
     }
     const scored = pool.map(p => ({ p, score: scorePerfume(p, answers, eligible, aliasToCanonical) }));
     scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, 5);
+	
+    // Get all distinct scores in descending order
+    const distinctScores = [...new Set(scored.map(s => s.score))].sort((a, b) => b - a);
+    
+    // Try top 3 distinct scores, expand downward until >= 5 results
+    let numScoresToInclude = Math.min(3, distinctScores.length);
+    while (numScoresToInclude <= distinctScores.length) {
+      const threshold = distinctScores[numScoresToInclude - 1];
+      const filtered = scored.filter(s => s.score >= threshold);
+      if (filtered.length >= 5) return filtered;
+      numScoresToInclude++;
+    }
+    
+    return scored; // fallback: return all if still < 5 after exhausting scores
   }, [perfumes, temperature, weather, season, seasonCtx, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity, effectiveLastCall, outgoingSeason, incomingSeason, aliasToCanonical]);
 
   if (step === "results") {
     return (
       <div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem", flexWrap: "wrap", gap: 8 }}>
-          <h2>Today's matches</h2>
+          <h2>Today's {results.length} matches</h2>
           <div style={{ display: "flex", gap: 14 }}>
             <button type="button" className="link-btn" onClick={() => setStep("quiz")}>&larr; Edit answers</button>
             <button type="button" className="link-btn" onClick={resetAll}>Start over</button>
