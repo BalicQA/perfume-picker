@@ -105,8 +105,8 @@ const { useState, useMemo, useEffect } = React;
 
 // Versioning: Major version is manual (you control this), minor auto-increments on each new deployment.
 // INSTRUCTIONS: To bump major version, update APP_VERSION_MAJOR below and minor will reset to 0.
-const APP_VERSION_MAJOR = 1;
-const APP_VERSION_MINOR_BASE = 3;
+const APP_VERSION_MAJOR = 2;
+const APP_VERSION_MINOR_BASE = 0;
 const APP_VERSION_DATE = "2026-08-09";
 
 // Computes the current version, auto-incrementing minor on deployment.
@@ -931,7 +931,8 @@ function App() {
   const [wantedNotes, setWantedNotes] = useState([]);
   const [unwantedNotes, setUnwantedNotes] = useState([]);
   const [loudness, setLoudness] = useState(null);
-  const [familiarity, setFamiliarity] = useState(null);
+  const [familiarity, setFamiliarity] = useState(null); // "new" | "known" | null — tried-before only
+  const [sizePref, setSizePref] = useState(null); // "Tester" | "Bottle" | null — ownership, independent of familiarity
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
 
@@ -974,6 +975,7 @@ function App() {
     setUnwantedNotes([]);
     setLoudness(null);
     setFamiliarity(null);
+    setSizePref(null);
     setLastCall(false);
     setStep("quiz");
   };
@@ -981,22 +983,23 @@ function App() {
   const results = useMemo(() => {
     const eligible = eligiblePerfumes(perfumes);
     const answers = { temperature, weather, season, seasonDefault: seasonCtx.current, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity, lastCall: effectiveLastCall, seasonOutgoing: outgoingSeason, seasonIncoming: incomingSeason };
-    let pool = eligible;
+    // Size (Tester/Bottle) is now its own always-available question, independent of
+    // Familiarity, so it's applied first as a straightforward hard filter.
+    let pool = sizePref ? eligible.filter(p => p.size === sizePref) : eligible;
     if (familiarity === "new") {
-      const untried = eligible.filter(p => p.status === "");
+      const untried = pool.filter(p => p.status === "");
       // Bug fix: previously required a score > 0 to "count" as a match, but a score of
       // exactly 0 just means no quiz answers happened to overlap with that perfume's tags
       // (neutral, not a non-match) — this incorrectly triggered the known-perfume fallback
       // almost every time. The real two-pass check is simply: does ANY untried perfume
       // exist at all? If so, show untried perfumes (ranked by whatever score they got,
       // including 0); only fall back to known perfumes if there are truly zero untried ones.
-      pool = untried.length ? untried : eligible;
+      // Fallback stays within the current Size selection (if any) — Size is a deliberate
+      // hard preference the user set, same as Familiarity, so falling back to a known
+      // perfume shouldn't silently cross from e.g. testers into bottles.
+      pool = untried.length ? untried : pool.filter(p => p.status !== "");
     } else if (familiarity === "known") {
-      pool = eligible.filter(p => p.status !== ""); // any perfume she's already tried (OK_More or OK_Finish)
-    } else if (familiarity === "testers") {
-      pool = eligible.filter(p => p.size === "Tester" && p.status !== "");
-    } else if (familiarity === "bottles") {
-      pool = eligible.filter(p => p.size === "Bottle" && p.status !== "");
+      pool = pool.filter(p => p.status !== ""); // any perfume she's already tried (OK_More or OK_Finish)
     }
     const scored = pool.map(p => ({ p, score: scorePerfume(p, answers, eligible, aliasToCanonical) }));
     scored.sort((a, b) => b.score - a.score);
@@ -1014,7 +1017,7 @@ function App() {
     }
     
     return scored; // fallback: return all if still < 5 after exhausting scores
-  }, [perfumes, temperature, weather, season, seasonCtx, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity, effectiveLastCall, outgoingSeason, incomingSeason, aliasToCanonical]);
+  }, [perfumes, temperature, weather, season, seasonCtx, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity, sizePref, effectiveLastCall, outgoingSeason, incomingSeason, aliasToCanonical]);
 
   if (step === "results") {
     return (
@@ -1066,11 +1069,29 @@ function App() {
         {` · ${APP_VERSION.display} (${APP_VERSION_DATE})`}
       </p>
 
+      <Section title="Familiarity" subtitle="Optional — narrows what gets suggested, and which questions show up below">
+        <p className="label">Have you tried it before?</p>
+        <PillGroup
+          options={["Something new","Something known"]}
+          selected={familiarity ? [familiarity === "new" ? "Something new" : "Something known"] : []}
+          onToggle={(v) => {
+            const map = { "Something new": "new", "Something known": "known" };
+            setFamiliarity(prev => prev === map[v] ? null : map[v]);
+          }}
+        />
+        <p className="label" style={{ marginTop: 12 }}>Size</p>
+        <PillGroup
+          options={["Tester","Bottle"]}
+          selected={sizePref ? [sizePref] : []}
+          onToggle={(v) => setSizePref(prev => prev === v ? null : v)}
+        />
+      </Section>
+
       <Section title="Weather">
         <p className="label">Temperature</p>
         <PillGroup options={["Cold","Cool","Warm","Hot"]} selected={temperature} onToggle={singleToggle(setTemperature)} />
         <p className="label" style={{ marginTop: 12 }}>Condition</p>
-        <PillGroup options={["Sun","Clouds","Rain","Snow"]} selected={weather} onToggle={singleToggle(setWeather)} />
+        <PillGroup options={["Snow","Rain","Clouds","Sun"]} selected={weather} onToggle={singleToggle(setWeather)} />
       </Section>
 
       <Section
@@ -1102,37 +1123,36 @@ function App() {
         )}
       </Section>
 
+      {familiarity !== "new" && (
       <Section title="Occasion & stress">
         <p className="label">Plan for the day</p>
         <PillGroup options={["Home","Walk","Shopping","Office","Sport","Special"]} selected={occasion} onToggle={toggle(setOccasion)} />
         <p className="label" style={{ marginTop: 12 }}>How stressful?</p>
         <PillGroup options={["Relaxed","Normal","Hectic"]} selected={[stress === "relaxed" ? "Relaxed" : stress === "hectic" ? "Hectic" : "Normal"]} onToggle={(v) => setStress(v.toLowerCase())} />
       </Section>
+      )}
 
       <Section title="Time of day" subtitle={`Auto-detected as ${detectTimeOfDay()} — tap to change`}>
         <PillGroup options={["Day","Night"]} selected={[timeOfDay]} onToggle={(v) => setTimeOfDay(v)} />
       </Section>
 
+      {familiarity !== "new" && (
       <Section title="Mood">
         <PillGroup options={MOODS} selected={mood} onToggle={toggle(setMood)} />
       </Section>
+      )}
 
       <Section title="Preferences" subtitle="Optional — but weighted highly when filled in">
         <p className="label">I want notes/accords like...</p>
         <SearchablePillGroup options={noteUniverse} selected={wantedNotes} onToggle={toggle(setWantedNotes)} placeholder="Search notes you want…" />
         <p className="label" style={{ marginTop: 14 }}>I don't want...</p>
         <SearchablePillGroup options={noteUniverse} selected={unwantedNotes} onToggle={toggle(setUnwantedNotes)} placeholder="Search notes to avoid…" />
-        <p className="label" style={{ marginTop: 14 }}>How loud?</p>
-        <PillGroup options={["subtle","moderate","beast"]} selected={loudness ? [loudness] : []} onToggle={(v) => setLoudness(loudness === v ? null : v)} />
-        <p className="label" style={{ marginTop: 14 }}>Familiarity</p>
-        <PillGroup
-          options={["Something new","Something known","From testers","From full bottles"]}
-          selected={familiarity ? [familiarity === "new" ? "Something new" : familiarity === "known" ? "Something known" : familiarity === "testers" ? "From testers" : "From full bottles"] : []}
-          onToggle={(v) => {
-            const map = { "Something new": "new", "Something known": "known", "From testers": "testers", "From full bottles": "bottles" };
-            setFamiliarity(prev => prev === map[v] ? null : map[v]);
-          }}
-        />
+        {familiarity !== "new" && (
+          <React.Fragment>
+            <p className="label" style={{ marginTop: 14 }}>How loud?</p>
+            <PillGroup options={["subtle","moderate","beast"]} selected={loudness ? [loudness] : []} onToggle={(v) => setLoudness(loudness === v ? null : v)} />
+          </React.Fragment>
+        )}
       </Section>
 
       <button type="button" className="primary-btn" onClick={() => setStep("results")}>Find my scent</button>
