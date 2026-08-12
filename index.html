@@ -1134,6 +1134,14 @@ function App() {
   const [dismissedNames, setDismissedNames] = useState([]);
   const dismissResult = (name) => setDismissedNames(prev => [...prev, name]);
 
+  // Names marked "✓ worth considering" (§7a) — session-only, not persisted, same lifecycle
+  // as dismissedNames. Purely reorders the visible list (greens first); does not rescore,
+  // does not write anywhere, and is NOT the pick-recording action (§12) — that's its own,
+  // still-undesigned control, since a recorded pick has to cover options this mark can't
+  // represent (something off-list, or nothing at all).
+  const [markedNames, setMarkedNames] = useState([]);
+  const toggleMark = (name) => setMarkedNames(prev => prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]);
+
   // Custom scoring weights (§5.1d) — persisted across sessions (unlike quiz answers),
   // so they survive "Start over" and page reloads. Reset button clears back to defaults.
   const [weights, setWeights] = useState(loadWeights);
@@ -1152,6 +1160,7 @@ function App() {
       setDataSource("live");
       setLastUpdated(new Date().toLocaleTimeString());
       setDismissedNames([]); // result pool may have changed, so dismissals no longer apply
+      setMarkedNames([]);
     } catch (err) {
       console.error("Sheet fetch failed, keeping previous data:", err);
       setLoadError(err.message || "Couldn't reach the sheet");
@@ -1185,6 +1194,7 @@ function App() {
     setSizePref(null);
     setLastCall(false);
     setDismissedNames([]);
+    setMarkedNames([]);
     setStep("quiz");
   };
 
@@ -1229,15 +1239,28 @@ function App() {
 
   if (step === "results") {
     // Dismissed cards are hidden from view only — the underlying `results` ranking/scores
-    // are untouched, so #N badges below intentionally keep each perfume's original rank
-    // rather than renumbering after dismissals.
-    const visibleResults = results.filter(({ p }) => !dismissedNames.includes(p.name));
+    // are untouched. Rank is captured here (from position in `results`, before filtering
+    // or reordering) precisely so #N badges below keep each perfume's original score-based
+    // rank, whether it's been dismissed away or reordered by the "✓ worth considering"
+    // mark — neither action rescores or renumbers anything (§7a).
+    const visibleResults = results
+      .map((entry, i) => ({ ...entry, rank: i + 1 }))
+      .filter(({ p }) => !dismissedNames.includes(p.name));
+    // Marked ("✓ worth considering") cards float to the top of the visible list. Purely a
+    // display-order change — a stable sort so relative order within each group (marked /
+    // unmarked) still reflects original score order, same as before the mark existed.
+    const displayResults = [...visibleResults].sort((a, b) => {
+      const aMarked = markedNames.includes(a.p.name);
+      const bMarked = markedNames.includes(b.p.name);
+      if (aMarked === bMarked) return 0;
+      return aMarked ? -1 : 1;
+    });
     return (
       <div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem", flexWrap: "wrap", gap: 8 }}>
           <h2>Today's {visibleResults.length} matches</h2>
           <div style={{ display: "flex", gap: 14 }}>
-            <button type="button" className="link-btn" onClick={() => { setDismissedNames([]); setStep("quiz"); }}>&larr; Edit answers</button>
+            <button type="button" className="link-btn" onClick={() => { setDismissedNames([]); setMarkedNames([]); setStep("quiz"); }}>&larr; Edit answers</button>
             <button type="button" className="link-btn" onClick={resetAll}>Start over</button>
             <button type="button" className="link-btn" onClick={refreshData} disabled={isRefreshing}>
               {isRefreshing ? "Refreshing…" : "🔄 Refresh data"}
@@ -1249,10 +1272,10 @@ function App() {
           <p style={{ color: "var(--text-secondary)" }}>You've dismissed all of today's matches — edit your answers or start over to see more.</p>
         )}
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {results.map(({ p, score }, i) => {
-            if (dismissedNames.includes(p.name)) return null;
+          {displayResults.map(({ p, score, rank }) => {
+            const isMarked = markedNames.includes(p.name);
             return (
-            <div key={p.name} className="card">
+            <div key={p.name} className="card" style={isMarked ? { background: "#eef5ec", borderColor: "#bcd6b7" } : undefined}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
                 <div>
                   <p style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{p.brand} — {p.name}</p>
@@ -1261,24 +1284,45 @@ function App() {
                   </p>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-                  <span className="tag" style={{ fontWeight: 600 }}>#{i + 1} · score {score}</span>
-                  <button
-                    type="button"
-                    onClick={() => dismissResult(p.name)}
-                    aria-label={`Not today: ${p.brand} ${p.name}`}
-                    title="Not today"
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "var(--text-tertiary)",
-                      fontSize: 13,
-                      cursor: "pointer",
-                      padding: "2px 4px",
-                      lineHeight: 1,
-                    }}
-                  >
-                    ✕
-                  </button>
+                  <span className="tag" style={{ fontWeight: 600 }}>#{rank} · score {score}</span>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <button
+                      type="button"
+                      onClick={() => toggleMark(p.name)}
+                      aria-label={`Worth considering: ${p.brand} ${p.name}`}
+                      aria-pressed={isMarked}
+                      title="Worth considering"
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: isMarked ? "#5a8a5e" : "var(--text-tertiary)",
+                        fontWeight: isMarked ? 700 : 400,
+                        fontSize: 13,
+                        cursor: "pointer",
+                        padding: "2px 4px",
+                        lineHeight: 1,
+                      }}
+                    >
+                      ✓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => dismissResult(p.name)}
+                      aria-label={`Not today: ${p.brand} ${p.name}`}
+                      title="Not today"
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "var(--text-tertiary)",
+                        fontSize: 13,
+                        cursor: "pointer",
+                        padding: "2px 4px",
+                        lineHeight: 1,
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
