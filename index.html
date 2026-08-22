@@ -107,7 +107,7 @@ const { useState, useMemo, useEffect } = React;
 // INSTRUCTIONS: To bump major version, update APP_VERSION_MAJOR below and minor will reset to 0.
 const APP_VERSION_MAJOR = 2;
 const APP_VERSION_MINOR_BASE = 0;
-const APP_VERSION_DATE = "2026-08-10";
+const APP_VERSION_DATE = "2026-08-22";
 
 // Computes the current version, auto-incrementing minor on deployment.
 // Uses localStorage to detect new deployments (by date change).
@@ -270,6 +270,7 @@ const TEST_PERFUMES = [
     occasion: ["Home", "Walk", "Shopping", "Office"], temperature: ["Warm", "Cool", "Hot"],
     weather: ["Clouds", "Rain"], season: ["spring", "summer", "autumn", "winter"],
     mood: ["Cozy", "Clean", "Calm", "Playful", "Tired", "Nostalgic", "Painful"],
+    collection: [], // not yet populated in test data — see §14
   },
   {
     brand: "d'Annam", name: "Eau de Samiec",
@@ -281,6 +282,7 @@ const TEST_PERFUMES = [
     occasion: ["Home", "Walk", "Shopping"], temperature: ["Warm", "Cool"],
     weather: ["Clouds", "Rain"], season: ["autumn", "spring", "summer", "winter"],
     mood: ["Cozy", "Clean", "Calm", "Tired", "Painful"],
+    collection: [], // not yet populated in test data — see §14
   },
   {
     brand: "Lancome", name: "NOK NOK",
@@ -292,6 +294,7 @@ const TEST_PERFUMES = [
     occasion: ["Special"], temperature: [],
     weather: [], season: ["autumn", "winter"],
     mood: [],
+    collection: [], // not yet populated in test data — see §14
   },
   {
     brand: "Etat Libre d'Orange", name: "You or Someone Like You",
@@ -303,6 +306,7 @@ const TEST_PERFUMES = [
     occasion: ["Home", "Walk", "Shopping", "Office", "Sport"], temperature: ["Hot", "Warm"],
     weather: ["Sun", "Clouds"], season: ["summer", "spring"],
     mood: ["Clean", "Energetic", "Cozy"],
+    collection: [], // not yet populated in test data — see §14
   },
   {
     brand: "Acqua di Parma", name: "New unknown Summer",
@@ -314,6 +318,7 @@ const TEST_PERFUMES = [
     occasion: ["Home", "Walk", "Shopping", "Office", "Sport"], temperature: ["Hot", "Warm"],
     weather: ["Sun"], season: ["spring", "summer"],
     mood: ["Clean", "Energetic"],
+    collection: [], // not yet populated in test data — see §14
   },
   {
     brand: "Clinique", name: "Happy",
@@ -325,6 +330,7 @@ const TEST_PERFUMES = [
     occasion: ["Home", "Walk", "Shopping", "Office", "Sport"], temperature: ["Cool", "Warm"],
     weather: ["Clouds", "Rain", "Sun"], season: ["spring", "summer", "autumn"],
     mood: ["Cozy", "Clean", "Feminine", "Energetic", "Calm", "Bold", "Playful", "Stressed", "Tired", "Anxious", "Nostalgic", "Painful"],
+    collection: [], // not yet populated in test data — see §14
   },
   {
     brand: "Yves Rocher", name: "liked summer",
@@ -336,6 +342,7 @@ const TEST_PERFUMES = [
     occasion: ["Home", "Walk", "Shopping", "Office", "Sport"], temperature: ["Warm", "Hot"],
     weather: ["Sun", "Clouds", "Rain"], season: ["spring", "summer"],
     mood: ["Clean", "Energetic", "Calm", "Bold", "Stressed", "Tired", "Anxious", "Painful"],
+    collection: [], // not yet populated in test data — see §14
   },
   {
     brand: "Guerlain", name: "Ginger Piccante",
@@ -347,6 +354,7 @@ const TEST_PERFUMES = [
     occasion: ["Home", "Shopping", "Office", "Walk"], temperature: ["Warm", "Cool", "Cold"],
     weather: ["Clouds", "Rain"], season: ["spring", "autumn"],
     mood: ["Energetic", "Calm", "Bold", "Playful", "Stressed", "Tired", "Anxious", "Painful", "Angry"],
+    collection: [], // not yet populated in test data — see §14
   },
   {
     brand: "Lattafa", name: "Eclaire Pistache",
@@ -358,6 +366,7 @@ const TEST_PERFUMES = [
     occasion: ["Home", "Shopping", "Special", "Walk"], temperature: ["Cool", "Cold"],
     weather: ["Clouds", "Rain", "Snow"], season: ["autumn", "winter"],
     mood: ["Cozy", "Feminine", "Calm", "Bold", "Playful", "Tired", "Nostalgic"],
+    collection: [], // not yet populated in test data — see §14
   },
   {
     brand: "Guerlain", name: "Pamplelune",
@@ -369,6 +378,7 @@ const TEST_PERFUMES = [
     occasion: ["Home", "Walk", "Shopping", "Office"], temperature: ["Hot", "Warm"],
     weather: ["Sun", "Clouds", "Rain"], season: ["summer", "spring"],
     mood: ["Clean", "Feminine", "Energetic", "Bold", "Stressed", "Tired", "Anxious", "Angry"],
+    collection: [], // not yet populated in test data — see §14
   },
   {
     brand: "Montale", name: "Full Incense",
@@ -380,6 +390,7 @@ const TEST_PERFUMES = [
     occasion: ["Home", "Special"], temperature: ["Cool", "Cold"],
     weather: ["Clouds", "Rain", "Snow"], season: ["autumn", "winter", "summer"],
     mood: ["Cozy", "Bold", "Playful", "Stressed", "Anxious", "Nostalgic", "Painful", "Angry", "Feminine"],
+    collection: [], // not yet populated in test data — see §14
   },
   {
     brand: "Bath & Body Works", name: "Poppy",
@@ -391,6 +402,7 @@ const TEST_PERFUMES = [
     occasion: ["Home", "Walk", "Shopping"], temperature: ["Warm", "Cool"],
     weather: ["Sun", "Clouds", "Rain"], season: ["summer", "spring"],
     mood: ["Cozy", "Clean", "Feminine", "Calm", "Tired", "Painful"],
+    collection: [], // not yet populated in test data — see §14
   },
   {
     brand: "Bath & Body Works", name: "Sensual Amber",
@@ -402,6 +414,7 @@ const TEST_PERFUMES = [
     occasion: ["Home", "Special"], temperature: ["Cool", "Warm"],
     weather: ["Clouds", "Rain", "Snow"], season: ["autumn", "summer", "winter"],
     mood: ["Cozy", "Clean", "Feminine", "Calm", "Tired", "Anxious", "Nostalgic", "Painful", "Angry"],
+    collection: [], // not yet populated in test data — see §14
   },
   {
     brand: "Tesori d'Oriente", name: "Hammam",
@@ -413,6 +426,7 @@ const TEST_PERFUMES = [
     occasion: [], temperature: [],
     weather: [], season: [],
     mood: [],
+    collection: [], // not yet populated in test data — see §14
   },
 ];
 
@@ -452,10 +466,11 @@ function splitMulti(val) {
 }
 
 // Maps a raw CSV row (array of cell strings) to our perfume object shape.
-// Column order per spec §3: A Brand, B Name, C Concentration, D URL, E Size,
+// Column order per spec §3 (resolved 2026-08-19, after the Month schema-drift fix and
+// the addition of Collection — see §14): A Brand, B Name, C Concentration, D URL, E Size,
 // F Status, G Total ml, H Remaining %, I Remaining ml, J Gender, K Main accords,
 // L Top notes, M Middle notes, N Base notes, O Longevity, P Sillage, Q Season,
-// R Time of day, S Occasion, T Temperature, U Weather, V Mood, W Notes.
+// R Time of day, S Occasion, T Temperature, U Weather, V Mood, W Month, X Collection, Y Notes.
 function rowToPerfume(cols) {
   const get = (i) => (cols[i] || "").trim();
   const remainingMlRaw = get(8);
@@ -482,7 +497,9 @@ function rowToPerfume(cols) {
     temperature: splitMulti(get(19)),
     weather: splitMulti(get(20)),
     mood: splitMulti(get(21)),
-    notes: get(22),
+    month: get(22), // schema-drift column (§3), not consumed anywhere yet
+    collection: splitMulti(get(23)), // §14 — multi-value, hard filter, no normalization (§6.1 doesn't apply)
+    notes: get(24),
   };
 }
 
@@ -741,6 +758,16 @@ function buildNormalizedNoteUniverse(perfumes) {
 // Normalizes a list of raw note strings to their canonical forms using the alias map.
 function normalizeNotes(notes, aliasToCanonical) {
   return notes.map(n => aliasToCanonical[n] || n);
+}
+
+// Builds the sorted list of distinct raw Collection values present in the data (§14).
+// Unlike buildNormalizedNoteUniverse() (§6.1), no merging/normalization is applied here —
+// Collection names are hand-curated by the user, not raw scraped Fragrantica strings, so
+// there's no near-duplicate problem to solve.
+function buildCollectionUniverse(perfumes) {
+  const set = new Set();
+  perfumes.forEach(p => (p.collection || []).forEach(c => set.add(c)));
+  return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 }
 
 function eligiblePerfumes(perfumes) {
@@ -1105,6 +1132,9 @@ function App() {
   const [dataSource, setDataSource] = useState("test"); // "test" | "live" | "error"
   const [loadError, setLoadError] = useState(null);
   const { displayList: noteUniverse, aliasToCanonical } = useMemo(() => buildNormalizedNoteUniverse(perfumes), [perfumes]);
+  const collectionUniverse = useMemo(() => buildCollectionUniverse(perfumes), [perfumes]);
+  // Selected Collections (§14) — hard filter, multi-select, OR-match. Empty = no restriction.
+  const [selectedCollections, setSelectedCollections] = useState([]);
   const [temperature, setTemperature] = useState([]);
   const [weather, setWeather] = useState([]);
   const seasonCtx = useMemo(() => detectSeasonContext(), []); // computed once per app load
@@ -1180,6 +1210,7 @@ function App() {
   const singleToggle = (setter) => (item) => setter(prev => (prev[0] === item ? [] : [item]));
 
   const resetAll = () => {
+    setSelectedCollections([]);
     setTemperature([]);
     setWeather([]);
     setSeason([]);
@@ -1204,6 +1235,13 @@ function App() {
     // Size (Tester/Bottle) is now its own always-available question, independent of
     // Familiarity, so it's applied first as a straightforward hard filter.
     let pool = sizePref ? eligible.filter(p => p.size === sizePref) : eligible;
+    // Collections (§14) — hard filter, applied right alongside Size, before Familiarity
+    // narrows further. Multi-select, OR-match: kept if the perfume carries ANY of the
+    // selected collections. No inference fallback (§6 doesn't apply here) — an untagged
+    // perfume just doesn't match.
+    if (selectedCollections.length) {
+      pool = pool.filter(p => (p.collection || []).some(c => selectedCollections.includes(c)));
+    }
     if (familiarity === "new") {
       const untried = pool.filter(p => p.status === "");
       // Bug fix: previously required a score > 0 to "count" as a match, but a score of
@@ -1235,7 +1273,7 @@ function App() {
     }
     
     return scored; // fallback: return all if still < 5 after exhausting scores
-  }, [perfumes, temperature, weather, season, seasonCtx, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity, sizePref, effectiveLastCall, outgoingSeason, incomingSeason, aliasToCanonical, effectiveWeights]);
+  }, [perfumes, temperature, weather, season, seasonCtx, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity, sizePref, selectedCollections, effectiveLastCall, outgoingSeason, incomingSeason, aliasToCanonical, effectiveWeights]);
 
   if (step === "results") {
     // Dismissed cards are hidden from view only — the underlying `results` ranking/scores
@@ -1367,6 +1405,12 @@ function App() {
           onToggle={(v) => setSizePref(prev => prev === v ? null : v)}
         />
       </Section>
+
+      {collectionUniverse.length > 0 && (
+      <Section title="Collections" subtitle="Optional — hard filter, only matching collections will be shown">
+        <SearchablePillGroup options={collectionUniverse} selected={selectedCollections} onToggle={toggle(setSelectedCollections)} placeholder="Search collections…" />
+      </Section>
+      )}
 
       <Section title="Weather">
         <p className="label">Temperature</p>
