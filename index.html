@@ -107,7 +107,7 @@ const { useState, useMemo, useEffect } = React;
 // INSTRUCTIONS: To bump major version, update APP_VERSION_MAJOR below and minor will reset to 0.
 const APP_VERSION_MAJOR = 2;
 const APP_VERSION_MINOR_BASE = 0;
-const APP_VERSION_DATE = "2026-08-22";
+const APP_VERSION_DATE = "2026-08-27";
 
 // Computes the current version, auto-incrementing minor on deployment.
 // Uses localStorage to detect new deployments (by date change).
@@ -151,6 +151,7 @@ const APP_VERSION = getComputedVersion();
 // fresh install with no localStorage override both produce today's existing behavior.
 const DEFAULT_WEIGHTS = {
   season: 10,
+  thisSeasonOnly: 6,
   temperature: 6,
   weather: 4,
   occasion: 3,
@@ -206,6 +207,7 @@ function computeEffectiveWeights(weights) {
       inferredExact: weights.season * r.season.inferredExact,
       inferredAdjacent: weights.season * r.season.inferredAdjacent,
     },
+    thisSeasonOnly: weights.thisSeasonOnly,
     temperature: {
       exact: weights.temperature,
       dist1: weights.temperature * r.temperature.dist1,
@@ -770,6 +772,15 @@ function buildCollectionUniverse(perfumes) {
   return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 }
 
+// Builds the sorted list of distinct Brand values present in the data (§15). Brand is
+// single-valued per perfume (unlike Collection), and — like Collection — is a clean,
+// user/Fragrantica-curated string with no near-duplicate problem, so no normalization here.
+function buildBrandUniverse(perfumes) {
+  const set = new Set();
+  perfumes.forEach(p => { if (p.brand) set.add(p.brand); });
+  return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+}
+
 function eligiblePerfumes(perfumes) {
   return perfumes.filter(p =>
     (p.size === "Bottle" || p.size === "Tester") &&
@@ -858,6 +869,18 @@ function scorePerfume(p, answers, pool, aliasToCanonical, weights) {
     }
     // If the perfume has no season data at all and inference found nothing, skip — no
     // information either way, so we neither reward nor penalize.
+  }
+
+  // --- This Season Only (§16): opt-in bonus for a perfume tagged with EXACTLY one season,
+  // matching one of the currently-effective selected season(s). Unlike Last Call, NOT gated
+  // to a transition window — available any time a season is in effect, whether that's the
+  // auto-detected default or an explicit tap. No similarity-inference variant, same reasoning
+  // as Last Call: this rewards an explicit, deliberate single-season tag, not an inferred guess. ---
+  if (answers.thisSeasonOnly && effectiveSeason.length) {
+    const seasons = (p.season || []).map(normalizeSeason);
+    if (seasons.length === 1 && effectiveSeason.includes(seasons[0])) {
+      score += ew.thisSeasonOnly;
+    }
   }
 
   // --- Last Call: nudge perfumes tagged with the outgoing season but NOT the incoming one,
@@ -974,6 +997,9 @@ function generateReason(p, answers, aliasToCanonical) {
       reasons.unshift(`last call for ${answers.seasonOutgoing.toLowerCase()}`);
     }
   }
+  if (answers.thisSeasonOnly && p.season && p.season.length === 1 && effectiveSeason.includes(normalizeSeason(p.season[0]))) {
+    reasons.unshift(`only for ${p.season[0].toLowerCase()}`);
+  }
   if (answers.mood.length) {
     const overlap = p.mood.filter(m => answers.mood.includes(m));
     if (overlap.length) reasons.push(`matches your ${overlap.join(", ").toLowerCase()} mood`);
@@ -1084,10 +1110,13 @@ function WeightSlider({ label, value, onChange }) {
 }
 
 // Collapsible "Advanced: adjust weights" section — collapsed by default (§5.1d).
-// Only the 9 in-scope tiers get a slider; Stress and Loudness are excluded because
-// both questions are hidden from the UI entirely (§5.1e), so there's nothing to tune.
+// 10 in-scope tiers get a slider (This Season Only added per §16); Stress and Loudness
+// are excluded because both questions are hidden from the UI entirely (§5.1e), so
+// there's nothing to tune. Order groups the three season-related sliders at the top.
 const WEIGHT_SLIDER_FIELDS = [
   { key: "season", label: "Season" },
+  { key: "thisSeasonOnly", label: "This Season Only" },
+  { key: "lastCall", label: "Last Call" },
   { key: "temperature", label: "Temperature" },
   { key: "weather", label: "Weather" },
   { key: "occasion", label: "Occasion" },
@@ -1095,7 +1124,6 @@ const WEIGHT_SLIDER_FIELDS = [
   { key: "mood", label: "Mood" },
   { key: "wantedNotes", label: "Wanted notes" },
   { key: "unwantedNotes", label: "Unwanted notes" },
-  { key: "lastCall", label: "Last Call" },
 ];
 function AdvancedWeights({ weights, onChange, onReset }) {
   const [open, setOpen] = useState(false);
@@ -1135,6 +1163,9 @@ function App() {
   const collectionUniverse = useMemo(() => buildCollectionUniverse(perfumes), [perfumes]);
   // Selected Collections (§14) — hard filter, multi-select, OR-match. Empty = no restriction.
   const [selectedCollections, setSelectedCollections] = useState([]);
+  const brandUniverse = useMemo(() => buildBrandUniverse(perfumes), [perfumes]);
+  // Selected Brands (§15) — hard filter, multi-select, OR-match, same standing as Collections.
+  const [selectedBrands, setSelectedBrands] = useState([]);
   const [temperature, setTemperature] = useState([]);
   const [weather, setWeather] = useState([]);
   const seasonCtx = useMemo(() => detectSeasonContext(), []); // computed once per app load
@@ -1147,6 +1178,12 @@ function App() {
   // the effective on/off state from the checkbox + selection, rather than syncing two pieces
   // of state, so unchecking the outgoing season automatically disarms it too.
   const effectiveLastCall = Boolean(lastCall && outgoingSeason && season.includes(outgoingSeason));
+  // "This Season Only" (§16) — unlike Last Call, not gated to a transition window or to an
+  // explicit tap, so no "effective" derivation is needed: the raw checkbox is the on/off state.
+  const [thisSeasonOnly, setThisSeasonOnly] = useState(false);
+  // Display label for whichever season(s) are currently in effect (explicit picks, or the
+  // auto-detected default) — used by the This Season Only pill's helper text.
+  const effectiveSeasonDisplay = (season.length ? season : [seasonCtx.current]).join(" or ");
   const [occasion, setOccasion] = useState([]);
   const [stress, setStress] = useState("normal");
   const [timeOfDay, setTimeOfDay] = useState(detectTimeOfDay());
@@ -1211,6 +1248,7 @@ function App() {
 
   const resetAll = () => {
     setSelectedCollections([]);
+    setSelectedBrands([]);
     setTemperature([]);
     setWeather([]);
     setSeason([]);
@@ -1224,6 +1262,7 @@ function App() {
     setFamiliarity(null);
     setSizePref(null);
     setLastCall(false);
+    setThisSeasonOnly(false);
     setDismissedNames([]);
     setMarkedNames([]);
     setStep("quiz");
@@ -1231,7 +1270,7 @@ function App() {
 
   const results = useMemo(() => {
     const eligible = eligiblePerfumes(perfumes);
-    const answers = { temperature, weather, season, seasonDefault: seasonCtx.current, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity, lastCall: effectiveLastCall, seasonOutgoing: outgoingSeason, seasonIncoming: incomingSeason };
+    const answers = { temperature, weather, season, seasonDefault: seasonCtx.current, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity, lastCall: effectiveLastCall, seasonOutgoing: outgoingSeason, seasonIncoming: incomingSeason, thisSeasonOnly };
     // Size (Tester/Bottle) is now its own always-available question, independent of
     // Familiarity, so it's applied first as a straightforward hard filter.
     let pool = sizePref ? eligible.filter(p => p.size === sizePref) : eligible;
@@ -1241,6 +1280,11 @@ function App() {
     // perfume just doesn't match.
     if (selectedCollections.length) {
       pool = pool.filter(p => (p.collection || []).some(c => selectedCollections.includes(c)));
+    }
+    // Brand (§15) — same standing as Collections: hard filter, multi-select, OR-match.
+    // Brand is single-valued per perfume, so no .some() needed, just a direct include check.
+    if (selectedBrands.length) {
+      pool = pool.filter(p => selectedBrands.includes(p.brand));
     }
     if (familiarity === "new") {
       const untried = pool.filter(p => p.status === "");
@@ -1273,7 +1317,7 @@ function App() {
     }
     
     return scored; // fallback: return all if still < 5 after exhausting scores
-  }, [perfumes, temperature, weather, season, seasonCtx, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity, sizePref, selectedCollections, effectiveLastCall, outgoingSeason, incomingSeason, aliasToCanonical, effectiveWeights]);
+  }, [perfumes, temperature, weather, season, seasonCtx, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity, sizePref, selectedCollections, selectedBrands, effectiveLastCall, outgoingSeason, incomingSeason, thisSeasonOnly, aliasToCanonical, effectiveWeights]);
 
   if (step === "results") {
     // Dismissed cards are hidden from view only — the underlying `results` ranking/scores
@@ -1318,7 +1362,7 @@ function App() {
                 <div>
                   <p style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{p.brand} — {p.name}</p>
                   <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-secondary)" }}>
-                    {generateReason(p, { temperature, weather, season, seasonDefault: seasonCtx.current, occasion, mood, wantedNotes, lastCall: effectiveLastCall, seasonOutgoing: outgoingSeason, seasonIncoming: incomingSeason }, aliasToCanonical)}
+                    {generateReason(p, { temperature, weather, season, seasonDefault: seasonCtx.current, occasion, mood, wantedNotes, lastCall: effectiveLastCall, seasonOutgoing: outgoingSeason, seasonIncoming: incomingSeason, thisSeasonOnly }, aliasToCanonical)}
                   </p>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
@@ -1412,6 +1456,12 @@ function App() {
       </Section>
       )}
 
+      {brandUniverse.length > 0 && (
+      <Section title="Brand" subtitle="Optional — hard filter, only matching brands will be shown">
+        <SearchablePillGroup options={brandUniverse} selected={selectedBrands} onToggle={toggle(setSelectedBrands)} placeholder="Search brands…" />
+      </Section>
+      )}
+
       <Section title="Weather">
         <p className="label">Temperature</p>
         <PillGroup options={["Cold","Cool","Warm","Hot"]} selected={temperature} onToggle={singleToggle(setTemperature)} />
@@ -1428,6 +1478,18 @@ function App() {
         }
       >
         <PillGroup options={seasonCtx.options} selected={season} onToggle={toggle(setSeason)} />
+        <div style={{ marginTop: 12 }}>
+          <button
+            type="button"
+            className={"pill" + (thisSeasonOnly ? " selected" : "")}
+            onClick={() => setThisSeasonOnly(v => !v)}
+          >
+            🎯 This Season Only
+          </button>
+          <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "6px 0 0" }}>
+            Boosts scents tagged for only {effectiveSeasonDisplay} — nothing else.
+          </p>
+        </div>
         {outgoingSeason && (
           <div style={{ marginTop: 12 }}>
             <button
