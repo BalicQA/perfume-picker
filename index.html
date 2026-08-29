@@ -264,7 +264,7 @@ function saveWeights(weights) {
 const TEST_PERFUMES = [
   {
     brand: "d'Annam", name: "0 left",
-    size: "Tester", status: "OK_More", remainingMl: 0.0, gender: "Female",
+    size: "Tester", testerType: null, status: "OK_More", remainingMl: 0.0, gender: "Female",
     accords: ["tropical", "sweet", "fruity"],
     topNotes: ["mango"], midNotes: ["rice"], baseNotes: ["coconut milk"],
     longevity: "medium", sillage: "medium",
@@ -276,7 +276,7 @@ const TEST_PERFUMES = [
   },
   {
     brand: "d'Annam", name: "Eau de Samiec",
-    size: "Tester", status: "OK_Finish", remainingMl: 1.0, gender: "Male",
+    size: "Tester", testerType: null, status: "OK_Finish", remainingMl: 1.0, gender: "Male",
     accords: ["sweet", "savory", "lactonic"],
     topNotes: ["rice", "red bean paste", "brown sugar", "strawberry", "vanilla"], midNotes: ["rice", "red bean paste", "brown sugar", "strawberry", "vanilla"], baseNotes: ["rice", "red bean paste", "brown sugar", "strawberry", "vanilla"],
     longevity: "medium", sillage: "short",
@@ -288,7 +288,7 @@ const TEST_PERFUMES = [
   },
   {
     brand: "Lancome", name: "NOK NOK",
-    size: "Tester", status: "NOK", remainingMl: 3.0, gender: "Female",
+    size: "Tester", testerType: null, status: "NOK", remainingMl: 3.0, gender: "Female",
     accords: ["fruity", "rose", "sweet"],
     topNotes: ["raspberry", "rose"], midNotes: ["cassis", "pink pepper", "peony", "jasmine"], baseNotes: ["vanille", "musk", "virginia cedar"],
     longevity: "long", sillage: "long",
@@ -300,7 +300,7 @@ const TEST_PERFUMES = [
   },
   {
     brand: "Etat Libre d'Orange", name: "You or Someone Like You",
-    size: "Tester", status: "OK_Finish", remainingMl: 4.0, gender: "Unisex",
+    size: "Tester", testerType: null, status: "OK_Finish", remainingMl: 4.0, gender: "Unisex",
     accords: ["green", "aromatic", "fresh spicy"],
     topNotes: ["mint", "grapefruit", "bergamot", "anise"], midNotes: ["green notes", "cassis", "rose", "hedione"], baseNotes: ["white musk"],
     longevity: "short", sillage: "short",
@@ -312,7 +312,7 @@ const TEST_PERFUMES = [
   },
   {
     brand: "Acqua di Parma", name: "New unknown Summer",
-    size: "Tester", status: "", remainingMl: 5.0, gender: "Unisex",
+    size: "Tester", testerType: null, status: "", remainingMl: 5.0, gender: "Unisex",
     accords: ["citrus", "aromatic"],
     topNotes: ["orange", "sicilian mandarin", "bergamot", "lemon"], midNotes: ["petitgrain", "cardamom"], baseNotes: ["caramel", "musk"],
     longevity: "short", sillage: "short",
@@ -324,7 +324,7 @@ const TEST_PERFUMES = [
   },
   {
     brand: "Clinique", name: "Happy",
-    size: "Bottle", status: "OK_More", remainingMl: 80.0, gender: "Female",
+    size: "Bottle", testerType: null, status: "OK_More", remainingMl: 80.0, gender: "Female",
     accords: ["citrus", "floral", "white floral"],
     topNotes: ["orange", "blood grapefruit", "indian mandarin", "bergamot", "apple", "plum"], midNotes: ["lily of the valley", "freesia", "orchid", "rose"], baseNotes: ["mimosa", "lily", "magnolia", "musk", "amber"],
     longevity: "medium", sillage: "medium",
@@ -336,7 +336,7 @@ const TEST_PERFUMES = [
   },
   {
     brand: "Yves Rocher", name: "liked summer",
-    size: "Bottle", status: "OK_Finish", remainingMl: 90.0, gender: "Female",
+    size: "Bottle", testerType: null, status: "OK_Finish", remainingMl: 90.0, gender: "Female",
     accords: ["green", "citrus", "fresh spicy"],
     topNotes: ["bergamot", "lemon"], midNotes: ["black tea", "green accord", "rose"], baseNotes: ["musk"],
     longevity: "medium", sillage: "medium",
@@ -348,7 +348,7 @@ const TEST_PERFUMES = [
   },
   {
     brand: "Guerlain", name: "Ginger Piccante",
-    size: "Bottle", status: "OK_More", remainingMl: 113.0, gender: "Unisex",
+    size: "Bottle", testerType: null, status: "OK_More", remainingMl: 113.0, gender: "Unisex",
     accords: ["fresh spicy", "citrus", "rose"],
     topNotes: ["ginger", "bergamot", "lemon"], midNotes: ["rose", "pepper"], baseNotes: ["white musk", "cedar"],
     longevity: "long", sillage: "medium",
@@ -360,7 +360,7 @@ const TEST_PERFUMES = [
   },
   {
     brand: "Lattafa", name: "Eclaire Pistache",
-    size: "Bottle", status: "OK_Finish", remainingMl: 90.0, gender: "Female",
+    size: "Bottle", testerType: null, status: "OK_Finish", remainingMl: 90.0, gender: "Female",
     accords: ["vanilla", "sweet", "lactonic"],
     topNotes: ["pistachio spread cream", "pistachio"], midNotes: ["cacao", "whipped cream", "coconut"], baseNotes: ["vanilla", "milk", "musk"],
     longevity: "long", sillage: "long",
@@ -372,7 +372,7 @@ const TEST_PERFUMES = [
   },
   {
     brand: "Guerlain", name: "Pamplelune",
-    size: "Bottle", status: "OK_More", remainingMl: 100.0, gender: "Female",
+    size: "Bottle", testerType: null, status: "OK_More", remainingMl: 100.0, gender: "Female",
     accords: ["citrus", "aromatic", "fresh spicy"],
     topNotes: ["grapefruit", "bergamot"], midNotes: ["cassia", "petitgrain", "neroli"], baseNotes: ["patchouli", "vanilla"],
     longevity: "long", sillage: "medium",
@@ -384,7 +384,7 @@ const TEST_PERFUMES = [
   },
   {
     brand: "Montale", name: "Full Incense",
-    size: "Bottle", status: "OK_More", remainingMl: 100.0, gender: "Unisex",
+    size: "Bottle", testerType: null, status: "OK_More", remainingMl: 100.0, gender: "Unisex",
     accords: ["amber", "balsamic", "woody"],
     topNotes: ["incense", "elemi resin", "virginia cedar", "French labdanum", "patchouli"], midNotes: ["incense", "elemi resin", "virginia cedar", "French labdanum", "patchouli"], baseNotes: ["incense", "elemi resin", "virginia cedar", "French labdanum", "patchouli"],
     longevity: "long", sillage: "long",
@@ -396,7 +396,7 @@ const TEST_PERFUMES = [
   },
   {
     brand: "Bath & Body Works", name: "Poppy",
-    size: "Bottle", status: "OK_Finish", remainingMl: 236.0, gender: "Female",
+    size: "Bottle", testerType: null, status: "OK_Finish", remainingMl: 236.0, gender: "Female",
     accords: ["fruity", "sweet", "aquatic"],
     topNotes: ["poppy", "pear", "dew drop", "rhubarb"], midNotes: ["poppy", "pear", "dew drop", "rhubarb"], baseNotes: ["poppy", "pear", "dew drop", "rhubarb"],
     longevity: "short", sillage: "short",
@@ -408,7 +408,7 @@ const TEST_PERFUMES = [
   },
   {
     brand: "Bath & Body Works", name: "Sensual Amber",
-    size: "Bottle", status: "OK_Finish", remainingMl: 236.0, gender: "Unisex",
+    size: "Bottle", testerType: null, status: "OK_Finish", remainingMl: 236.0, gender: "Unisex",
     accords: ["amber", "woody", "white floral"],
     topNotes: ["amber", "wild berries", "sandalwood", "orange blossom", "lotus petals"], midNotes: ["amber", "wild berries", "sandalwood", "orange blossom", "lotus petals"], baseNotes: ["amber", "wild berries", "sandalwood", "orange blossom", "lotus petals"],
     longevity: "medium", sillage: "medium",
@@ -420,7 +420,7 @@ const TEST_PERFUMES = [
   },
   {
     brand: "Tesori d'Oriente", name: "Hammam",
-    size: "Bottle", status: "", remainingMl: 45.0, gender: "Unisex",
+    size: "Bottle", testerType: null, status: "", remainingMl: 45.0, gender: "Unisex",
     accords: ["citrus", "white floral", "sweet"],
     topNotes: ["mandarin orange", "lemon", "almond blossom"], midNotes: ["orange blossom", "jasmine"], baseNotes: ["vanilla", "amber", "woodsy notes", "musk"],
     longevity: null, sillage: null,
@@ -468,14 +468,13 @@ function splitMulti(val) {
 }
 
 // Maps a raw CSV row (array of cell strings) to our perfume object shape.
-// Column order per spec §3 (resolved 2026-08-19, after the Month schema-drift fix and
-// the addition of Collection — see §14): A Brand, B Name, C Concentration, D URL, E Size,
-// F Status, G Total ml, H Remaining %, I Remaining ml, J Gender, K Main accords,
-// L Top notes, M Middle notes, N Base notes, O Longevity, P Sillage, Q Season,
-// R Time of day, S Occasion, T Temperature, U Weather, V Mood, W Month, X Collection, Y Notes.
+// Column order per spec §3: A Brand, B Name, C Concentration, D URL, E Size,
+// F Tester type, G Status, H Total ml, I Remaining %, J Remaining ml, K Gender, 
+// L Main accords, M Top notes, N Middle notes, O Base notes, P Longevity, Q Sillage, 
+// R Season, S Time of day, T Occasion, U Temperature, V Weather, W Mood, X Month, Y Collection, Z Notes.
 function rowToPerfume(cols) {
   const get = (i) => (cols[i] || "").trim();
-  const remainingMlRaw = get(8);
+  const remainingMlRaw = get(9);
   const remainingMl = remainingMlRaw === "" ? null : parseFloat(remainingMlRaw.replace(",", "."));
   return {
     brand: get(0),
@@ -483,25 +482,26 @@ function rowToPerfume(cols) {
     concentration: get(2),
     url: get(3),
     size: get(4),
-    status: get(5),
-    totalMl: get(6) === "" ? null : parseFloat(get(6).replace(",", ".")),
+    testerType: get(5) || null,
+    status: get(6),
+    totalMl: get(7) === "" ? null : parseFloat(get(7).replace(",", ".")),
     remainingMl: isNaN(remainingMl) ? null : remainingMl,
-    gender: get(9) === "" ? "Unisex" : get(9), // empty defaults to Unisex per §3.1
-    accords: splitMulti(get(10)),
-    topNotes: splitMulti(get(11)),
-    midNotes: splitMulti(get(12)),
-    baseNotes: splitMulti(get(13)),
-    longevity: get(14) || null,
-    sillage: get(15) || null,
-    season: splitMulti(get(16)),
-    timeOfDay: splitMulti(get(17)),
-    occasion: splitMulti(get(18)),
-    temperature: splitMulti(get(19)),
-    weather: splitMulti(get(20)),
-    mood: splitMulti(get(21)),
-    month: get(22), // schema-drift column (§3), not consumed anywhere yet
-    collection: splitMulti(get(23)), // §14 — multi-value, hard filter, no normalization (§6.1 doesn't apply)
-    notes: get(24),
+    gender: get(10) === "" ? "Unisex" : get(10), // empty defaults to Unisex per §3.1
+    accords: splitMulti(get(11)),
+    topNotes: splitMulti(get(12)),
+    midNotes: splitMulti(get(13)),
+    baseNotes: splitMulti(get(14)),
+    longevity: get(15) || null,
+    sillage: get(16) || null,
+    season: splitMulti(get(17)),
+    timeOfDay: splitMulti(get(18)),
+    occasion: splitMulti(get(19)),
+    temperature: splitMulti(get(20)),
+    weather: splitMulti(get(21)),
+    mood: splitMulti(get(22)),
+    month: get(23),
+    collection: splitMulti(get(24)), // §14 — multi-value, hard filter, no normalization (§6.1 doesn't apply)
+    notes: get(25),
   };
 }
 
@@ -1193,6 +1193,7 @@ function App() {
   const [loudness, setLoudness] = useState(null);
   const [familiarity, setFamiliarity] = useState(null); // "new" | "known" | null — tried-before only
   const [sizePref, setSizePref] = useState(null); // "Tester" | "Bottle" | null — ownership, independent of familiarity
+  const [testerTypePref, setTesterTypePref] = useState(null); // "Flacon" | "Vial" | "Booklet" | null — only meaningful when sizePref = "Tester"
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   // Names dismissed ("✕ Not today") from the current results view. Session-only, not
@@ -1261,6 +1262,7 @@ function App() {
     setLoudness(null);
     setFamiliarity(null);
     setSizePref(null);
+    setTesterTypePref(null);
     setLastCall(false);
     setThisSeasonOnly(false);
     setDismissedNames([]);
@@ -1274,6 +1276,11 @@ function App() {
     // Size (Tester/Bottle) is now its own always-available question, independent of
     // Familiarity, so it's applied first as a straightforward hard filter.
     let pool = sizePref ? eligible.filter(p => p.size === sizePref) : eligible;
+    // Tester type (Flacon/Vial/Booklet) — hard filter, only meaningful when Size = Tester,
+    // applied right after Size filter, same standing as Size/Collections/Brand.
+    if (sizePref === "Tester" && testerTypePref) {
+      pool = pool.filter(p => p.testerType === testerTypePref);
+    }
     // Collections (§14) — hard filter, applied right alongside Size, before Familiarity
     // narrows further. Multi-select, OR-match: kept if the perfume carries ANY of the
     // selected collections. No inference fallback (§6 doesn't apply here) — an untagged
@@ -1317,7 +1324,7 @@ function App() {
     }
     
     return scored; // fallback: return all if still < 5 after exhausting scores
-  }, [perfumes, temperature, weather, season, seasonCtx, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity, sizePref, selectedCollections, selectedBrands, effectiveLastCall, outgoingSeason, incomingSeason, thisSeasonOnly, aliasToCanonical, effectiveWeights]);
+  }, [perfumes, temperature, weather, season, seasonCtx, occasion, stress, timeOfDay, mood, wantedNotes, unwantedNotes, loudness, familiarity, sizePref, testerTypePref, selectedCollections, selectedBrands, effectiveLastCall, outgoingSeason, incomingSeason, thisSeasonOnly, aliasToCanonical, effectiveWeights]);
 
   if (step === "results") {
     // Dismissed cards are hidden from view only — the underlying `results` ranking/scores
@@ -1448,6 +1455,16 @@ function App() {
           selected={sizePref ? [sizePref] : []}
           onToggle={(v) => setSizePref(prev => prev === v ? null : v)}
         />
+        {sizePref === "Tester" && (
+          <>
+            <p className="label" style={{ marginTop: 12 }}>Tester type</p>
+            <PillGroup
+              options={["Flacon","Vial","Booklet"]}
+              selected={testerTypePref ? [testerTypePref] : []}
+              onToggle={(v) => setTesterTypePref(prev => prev === v ? null : v)}
+            />
+          </>
+        )}
       </Section>
 
       {collectionUniverse.length > 0 && (
