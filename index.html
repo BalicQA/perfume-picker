@@ -261,176 +261,26 @@ function saveWeights(weights) {
 // exercise the §6 similarity-inference fallback), plus several fully-tagged real perfumes
 // for testing scoring weights at a readable scale. This is fallback data only — real usage
 // always reads from the live Google Sheet (see fetchSheetPerfumes() below).
+
 const TEST_PERFUMES = [
-  {
-    brand: "d'Annam", name: "0 left",
-    size: "Tester", testerType: null, status: "OK_More", remainingMl: 0.0, gender: "Female",
-    accords: ["tropical", "sweet", "fruity"],
-    topNotes: ["mango"], midNotes: ["rice"], baseNotes: ["coconut milk"],
-    longevity: "medium", sillage: "medium",
-    timeOfDay: ["Day", "Night"],
-    occasion: ["Home", "Walk", "Shopping", "Office"], temperature: ["Warm", "Cool", "Hot"],
-    weather: ["Clouds", "Rain"], season: ["spring", "summer", "autumn", "winter"],
-    mood: ["Cozy", "Clean", "Calm", "Playful", "Tired", "Nostalgic", "Painful"],
-    collection: [], // not yet populated in test data — see §14
-  },
-  {
-    brand: "d'Annam", name: "Eau de Samiec",
-    size: "Tester", testerType: null, status: "OK_Finish", remainingMl: 1.0, gender: "Male",
-    accords: ["sweet", "savory", "lactonic"],
-    topNotes: ["rice", "red bean paste", "brown sugar", "strawberry", "vanilla"], midNotes: ["rice", "red bean paste", "brown sugar", "strawberry", "vanilla"], baseNotes: ["rice", "red bean paste", "brown sugar", "strawberry", "vanilla"],
-    longevity: "medium", sillage: "short",
-    timeOfDay: ["Day", "Night"],
-    occasion: ["Home", "Walk", "Shopping"], temperature: ["Warm", "Cool"],
-    weather: ["Clouds", "Rain"], season: ["autumn", "spring", "summer", "winter"],
-    mood: ["Cozy", "Clean", "Calm", "Tired", "Painful"],
-    collection: [], // not yet populated in test data — see §14
-  },
-  {
-    brand: "Lancome", name: "NOK NOK",
-    size: "Tester", testerType: null, status: "NOK", remainingMl: 3.0, gender: "Female",
-    accords: ["fruity", "rose", "sweet"],
-    topNotes: ["raspberry", "rose"], midNotes: ["cassis", "pink pepper", "peony", "jasmine"], baseNotes: ["vanille", "musk", "virginia cedar"],
-    longevity: "long", sillage: "long",
-    timeOfDay: ["Night"],
-    occasion: ["Special"], temperature: [],
-    weather: [], season: ["autumn", "winter"],
-    mood: [],
-    collection: [], // not yet populated in test data — see §14
-  },
-  {
-    brand: "Etat Libre d'Orange", name: "You or Someone Like You",
-    size: "Tester", testerType: null, status: "OK_Finish", remainingMl: 4.0, gender: "Unisex",
-    accords: ["green", "aromatic", "fresh spicy"],
-    topNotes: ["mint", "grapefruit", "bergamot", "anise"], midNotes: ["green notes", "cassis", "rose", "hedione"], baseNotes: ["white musk"],
-    longevity: "short", sillage: "short",
-    timeOfDay: ["Day"],
-    occasion: ["Home", "Walk", "Shopping", "Office", "Sport"], temperature: ["Hot", "Warm"],
-    weather: ["Sun", "Clouds"], season: ["summer", "spring"],
-    mood: ["Clean", "Energetic", "Cozy"],
-    collection: [], // not yet populated in test data — see §14
-  },
-  {
-    brand: "Acqua di Parma", name: "New unknown Summer",
-    size: "Tester", testerType: null, status: "", remainingMl: 5.0, gender: "Unisex",
-    accords: ["citrus", "aromatic"],
-    topNotes: ["orange", "sicilian mandarin", "bergamot", "lemon"], midNotes: ["petitgrain", "cardamom"], baseNotes: ["caramel", "musk"],
-    longevity: "short", sillage: "short",
-    timeOfDay: ["Day"],
-    occasion: ["Home", "Walk", "Shopping", "Office", "Sport"], temperature: ["Hot", "Warm"],
-    weather: ["Sun"], season: ["spring", "summer"],
-    mood: ["Clean", "Energetic"],
-    collection: [], // not yet populated in test data — see §14
-  },
-  {
-    brand: "Clinique", name: "Happy",
-    size: "Bottle", testerType: null, status: "OK_More", remainingMl: 80.0, gender: "Female",
-    accords: ["citrus", "floral", "white floral"],
-    topNotes: ["orange", "blood grapefruit", "indian mandarin", "bergamot", "apple", "plum"], midNotes: ["lily of the valley", "freesia", "orchid", "rose"], baseNotes: ["mimosa", "lily", "magnolia", "musk", "amber"],
-    longevity: "medium", sillage: "medium",
-    timeOfDay: ["Day"],
-    occasion: ["Home", "Walk", "Shopping", "Office", "Sport"], temperature: ["Cool", "Warm"],
-    weather: ["Clouds", "Rain", "Sun"], season: ["spring", "summer", "autumn"],
-    mood: ["Cozy", "Clean", "Feminine", "Energetic", "Calm", "Bold", "Playful", "Stressed", "Tired", "Anxious", "Nostalgic", "Painful"],
-    collection: [], // not yet populated in test data — see §14
-  },
-  {
-    brand: "Yves Rocher", name: "liked summer",
-    size: "Bottle", testerType: null, status: "OK_Finish", remainingMl: 90.0, gender: "Female",
-    accords: ["green", "citrus", "fresh spicy"],
-    topNotes: ["bergamot", "lemon"], midNotes: ["black tea", "green accord", "rose"], baseNotes: ["musk"],
-    longevity: "medium", sillage: "medium",
-    timeOfDay: ["Day"],
-    occasion: ["Home", "Walk", "Shopping", "Office", "Sport"], temperature: ["Warm", "Hot"],
-    weather: ["Sun", "Clouds", "Rain"], season: ["spring", "summer"],
-    mood: ["Clean", "Energetic", "Calm", "Bold", "Stressed", "Tired", "Anxious", "Painful"],
-    collection: [], // not yet populated in test data — see §14
-  },
-  {
-    brand: "Guerlain", name: "Ginger Piccante",
-    size: "Bottle", testerType: null, status: "OK_More", remainingMl: 113.0, gender: "Unisex",
-    accords: ["fresh spicy", "citrus", "rose"],
-    topNotes: ["ginger", "bergamot", "lemon"], midNotes: ["rose", "pepper"], baseNotes: ["white musk", "cedar"],
-    longevity: "long", sillage: "medium",
-    timeOfDay: ["Day"],
-    occasion: ["Home", "Shopping", "Office", "Walk"], temperature: ["Warm", "Cool", "Cold"],
-    weather: ["Clouds", "Rain"], season: ["spring", "autumn"],
-    mood: ["Energetic", "Calm", "Bold", "Playful", "Stressed", "Tired", "Anxious", "Painful", "Angry"],
-    collection: [], // not yet populated in test data — see §14
-  },
-  {
-    brand: "Lattafa", name: "Eclaire Pistache",
-    size: "Bottle", testerType: null, status: "OK_Finish", remainingMl: 90.0, gender: "Female",
-    accords: ["vanilla", "sweet", "lactonic"],
-    topNotes: ["pistachio spread cream", "pistachio"], midNotes: ["cacao", "whipped cream", "coconut"], baseNotes: ["vanilla", "milk", "musk"],
-    longevity: "long", sillage: "long",
-    timeOfDay: ["Night"],
-    occasion: ["Home", "Shopping", "Special", "Walk"], temperature: ["Cool", "Cold"],
-    weather: ["Clouds", "Rain", "Snow"], season: ["autumn", "winter"],
-    mood: ["Cozy", "Feminine", "Calm", "Bold", "Playful", "Tired", "Nostalgic"],
-    collection: [], // not yet populated in test data — see §14
-  },
-  {
-    brand: "Guerlain", name: "Pamplelune",
-    size: "Bottle", testerType: null, status: "OK_More", remainingMl: 100.0, gender: "Female",
-    accords: ["citrus", "aromatic", "fresh spicy"],
-    topNotes: ["grapefruit", "bergamot"], midNotes: ["cassia", "petitgrain", "neroli"], baseNotes: ["patchouli", "vanilla"],
-    longevity: "long", sillage: "medium",
-    timeOfDay: ["Day"],
-    occasion: ["Home", "Walk", "Shopping", "Office"], temperature: ["Hot", "Warm"],
-    weather: ["Sun", "Clouds", "Rain"], season: ["summer", "spring"],
-    mood: ["Clean", "Feminine", "Energetic", "Bold", "Stressed", "Tired", "Anxious", "Angry"],
-    collection: [], // not yet populated in test data — see §14
-  },
-  {
-    brand: "Montale", name: "Full Incense",
-    size: "Bottle", testerType: null, status: "OK_More", remainingMl: 100.0, gender: "Unisex",
-    accords: ["amber", "balsamic", "woody"],
-    topNotes: ["incense", "elemi resin", "virginia cedar", "French labdanum", "patchouli"], midNotes: ["incense", "elemi resin", "virginia cedar", "French labdanum", "patchouli"], baseNotes: ["incense", "elemi resin", "virginia cedar", "French labdanum", "patchouli"],
-    longevity: "long", sillage: "long",
-    timeOfDay: ["Night"],
-    occasion: ["Home", "Special"], temperature: ["Cool", "Cold"],
-    weather: ["Clouds", "Rain", "Snow"], season: ["autumn", "winter", "summer"],
-    mood: ["Cozy", "Bold", "Playful", "Stressed", "Anxious", "Nostalgic", "Painful", "Angry", "Feminine"],
-    collection: [], // not yet populated in test data — see §14
-  },
-  {
-    brand: "Bath & Body Works", name: "Poppy",
-    size: "Bottle", testerType: null, status: "OK_Finish", remainingMl: 236.0, gender: "Female",
-    accords: ["fruity", "sweet", "aquatic"],
-    topNotes: ["poppy", "pear", "dew drop", "rhubarb"], midNotes: ["poppy", "pear", "dew drop", "rhubarb"], baseNotes: ["poppy", "pear", "dew drop", "rhubarb"],
-    longevity: "short", sillage: "short",
-    timeOfDay: ["Day"],
-    occasion: ["Home", "Walk", "Shopping"], temperature: ["Warm", "Cool"],
-    weather: ["Sun", "Clouds", "Rain"], season: ["summer", "spring"],
-    mood: ["Cozy", "Clean", "Feminine", "Calm", "Tired", "Painful"],
-    collection: [], // not yet populated in test data — see §14
-  },
-  {
-    brand: "Bath & Body Works", name: "Sensual Amber",
-    size: "Bottle", testerType: null, status: "OK_Finish", remainingMl: 236.0, gender: "Unisex",
-    accords: ["amber", "woody", "white floral"],
-    topNotes: ["amber", "wild berries", "sandalwood", "orange blossom", "lotus petals"], midNotes: ["amber", "wild berries", "sandalwood", "orange blossom", "lotus petals"], baseNotes: ["amber", "wild berries", "sandalwood", "orange blossom", "lotus petals"],
-    longevity: "medium", sillage: "medium",
-    timeOfDay: ["Night"],
-    occasion: ["Home", "Special"], temperature: ["Cool", "Warm"],
-    weather: ["Clouds", "Rain", "Snow"], season: ["autumn", "summer", "winter"],
-    mood: ["Cozy", "Clean", "Feminine", "Calm", "Tired", "Anxious", "Nostalgic", "Painful", "Angry"],
-    collection: [], // not yet populated in test data — see §14
-  },
-  {
-    brand: "Tesori d'Oriente", name: "Hammam",
-    size: "Bottle", testerType: null, status: "", remainingMl: 45.0, gender: "Unisex",
-    accords: ["citrus", "white floral", "sweet"],
-    topNotes: ["mandarin orange", "lemon", "almond blossom"], midNotes: ["orange blossom", "jasmine"], baseNotes: ["vanilla", "amber", "woodsy notes", "musk"],
-    longevity: null, sillage: null,
-    timeOfDay: [],
-    occasion: [], temperature: [],
-    weather: [], season: [],
-    mood: [],
-    collection: [], // not yet populated in test data — see §14
-  },
+  { brand: "d'Annam", name: "Mango Sticky Rice", size: "Bottle", testerType: null, status: "OK_More", gender: "Female", remainingMl: 48, collections: "Rice, Milk" },
+  { brand: "d'Annam", name: "Strawberry Mochi", size: "Tester", testerType: "Flacon", status: "OK_More", gender: "Unisex", remainingMl: 1, collections: "Rice, Milk" },
+  { brand: "Lancome", name: "Tresor Midnight Rose", size: "Tester", testerType: "Short vial", status: "", gender: "Female", remainingMl: 3, collections: "Light roses" },
+  { brand: "Etat Libre d'Orange", name: "You or Someone Like You", size: "Bottle", testerType: null, status: "OK_Finish", gender: "Female", remainingMl: 55, collections: "Green roses, Extreme heat" },
+  { brand: "Acqua di Parma", name: "Arancia di Capri", size: "Tester", testerType: "Flacon", status: "OK_More", gender: "Unisex", remainingMl: 5, collections: "Extreme heat" },
+  { brand: "Clinique", name: "Happy", size: "Bottle", testerType: null, status: "OK_Finish", gender: "Female", remainingMl: 80, collections: "80s vibe, Favourites" },
+  { brand: "Yves Rocher", name: "Verte Envolee", size: "Bottle", testerType: null, status: "OK_Finish", gender: "Female", remainingMl: 90, collections: "Tea, Extreme heat, Favourites" },
+  { brand: "Guerlain", name: "Ginger Piccante", size: "Bottle", testerType: null, status: "OK_More", gender: "Unisex", remainingMl: 113, collections: "Light roses, Favourites, Gingers" },
+  { brand: "Lattafa", name: "Eclaire Pistache", size: "Bottle", testerType: null, status: "OK_Finish", gender: "Female", remainingMl: 90, collections: "Pistachio, Gourmand, Favourites, Milk" },
+  { brand: "Guerlain", name: "Pamplelune", size: "Bottle", testerType: null, status: "OK_More", gender: "Female", remainingMl: 100, collections: "Favourites, Extreme heat" },
+  { brand: "Montale", name: "Full Incense", size: "Tester", testerType: "Long vial", status: "OK_More", gender: "Unisex", remainingMl: 100, collections: "Spiritual, Favourites" },
+  { brand: "Bath & Body Works", name: "Poppy", size: "Bottle", testerType: null, status: "OK_Finish", gender: "Female", remainingMl: 236, collections: "" },
+  { brand: "Bath & Body Works", name: "Sensual Amber", size: "Bottle", testerType: null, status: "OK_Finish", gender: "Unisex", remainingMl: 236, collections: "" },
+  { brand: "Tesori d'Oriente", name: "Hammam", size: "Bottle", testerType: null, status: "", gender: "Unisex", remainingMl: 45, collections: "" },
+  { brand: "Tesori d'Oriente", name: "Vaniglia e Zenzero del Madagascar", size: "Bottle", testerType: null, status: "", gender: "Unisex", remainingMl: 45, collections: "Vanilla, Gingers" }
 ];
+
+
 
 // ---------- LIVE GOOGLE SHEET CONFIG ----------
 const SHEET_ID = "1LPlsWSLDxr4tH5sTyuoOw3iWXfzRhfYhM93JKcQL4gU";
@@ -1459,7 +1309,7 @@ function App() {
           <>
             <p className="label" style={{ marginTop: 12 }}>Tester type</p>
             <PillGroup
-              options={["Flacon","Vial","Booklet"]}
+              options={["Flacon","Short vial","Long vial","Booklet"]}
               selected={testerTypePref ? [testerTypePref] : []}
               onToggle={(v) => setTesterTypePref(prev => prev === v ? null : v)}
             />
