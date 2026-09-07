@@ -265,7 +265,7 @@ function saveWeights(weights) {
 const TEST_PERFUMES = [
   { brand: "d'Annam", name: "Mango Sticky Rice", size: "Bottle", testerType: null, status: "OK_More", gender: "Female", remainingMl: 48, collections: "Rice, Milk" },
   { brand: "d'Annam", name: "Strawberry Mochi", size: "Tester", testerType: "Flacon", status: "OK_More", gender: "Unisex", remainingMl: 1, collections: "Rice, Milk" },
-  { brand: "Lancome", name: "Tresor Midnight Rose", size: "Tester", testerType: "Short vial", status: "", gender: "Female", remainingMl: 3, collections: "Light roses" },
+  { brand: "Lancome", name: "Tresor Midnight Rose", size: "Tester", testerType: "Flacon", status: "", gender: "Female", remainingMl: 3, collections: "Light roses" },
   { brand: "Etat Libre d'Orange", name: "You or Someone Like You", size: "Bottle", testerType: null, status: "OK_Finish", gender: "Female", remainingMl: 55, collections: "Green roses, Extreme heat" },
   { brand: "Acqua di Parma", name: "Arancia di Capri", size: "Tester", testerType: "Flacon", status: "OK_More", gender: "Unisex", remainingMl: 5, collections: "Extreme heat" },
   { brand: "Clinique", name: "Happy", size: "Bottle", testerType: null, status: "OK_Finish", gender: "Female", remainingMl: 80, collections: "80s vibe, Favourites" },
@@ -273,7 +273,7 @@ const TEST_PERFUMES = [
   { brand: "Guerlain", name: "Ginger Piccante", size: "Bottle", testerType: null, status: "OK_More", gender: "Unisex", remainingMl: 113, collections: "Light roses, Favourites, Gingers" },
   { brand: "Lattafa", name: "Eclaire Pistache", size: "Bottle", testerType: null, status: "OK_Finish", gender: "Female", remainingMl: 90, collections: "Pistachio, Gourmand, Favourites, Milk" },
   { brand: "Guerlain", name: "Pamplelune", size: "Bottle", testerType: null, status: "OK_More", gender: "Female", remainingMl: 100, collections: "Favourites, Extreme heat" },
-  { brand: "Montale", name: "Full Incense", size: "Tester", testerType: "Long vial", status: "OK_More", gender: "Unisex", remainingMl: 100, collections: "Spiritual, Favourites" },
+  { brand: "Montale", name: "Full Incense", size: "Bottle", testerType: "Vial", status: "OK_More", gender: "Unisex", remainingMl: 100, collections: "Spiritual, Favourites" },
   { brand: "Bath & Body Works", name: "Poppy", size: "Bottle", testerType: null, status: "OK_Finish", gender: "Female", remainingMl: 236, collections: "" },
   { brand: "Bath & Body Works", name: "Sensual Amber", size: "Bottle", testerType: null, status: "OK_Finish", gender: "Unisex", remainingMl: 236, collections: "" },
   { brand: "Tesori d'Oriente", name: "Hammam", size: "Bottle", testerType: null, status: "", gender: "Unisex", remainingMl: 45, collections: "" },
@@ -1309,7 +1309,7 @@ function App() {
           <>
             <p className="label" style={{ marginTop: 12 }}>Tester type</p>
             <PillGroup
-              options={["Flacon","Short vial","Long vial","Booklet"]}
+              options={["Flacon","Vial","Booklet"]}
               selected={testerTypePref ? [testerTypePref] : []}
               onToggle={(v) => setTesterTypePref(prev => prev === v ? null : v)}
             />
