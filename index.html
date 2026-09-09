@@ -1043,7 +1043,7 @@ function App() {
   const [loudness, setLoudness] = useState(null);
   const [familiarity, setFamiliarity] = useState(null); // "new" | "known" | null — tried-before only
   const [sizePref, setSizePref] = useState(null); // "Tester" | "Bottle" | null — ownership, independent of familiarity
-  const [testerTypePref, setTesterTypePref] = useState(null); // "Flacon" | "Short vial" | "Long vial" | "Booklet" | null — only meaningful when sizePref = "Tester"
+  const [testerTypePref, setTesterTypePref] = useState([]); // multi-select array: "Flacon", "Short vial", "Long vial", "Booklet" — only meaningful when sizePref = "Tester"
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   // Names dismissed ("✕ Not today") from the current results view. Session-only, not
@@ -1112,7 +1112,7 @@ function App() {
     setLoudness(null);
     setFamiliarity(null);
     setSizePref(null);
-    setTesterTypePref(null);
+    setTesterTypePref([]);
     setLastCall(false);
     setThisSeasonOnly(false);
     setDismissedNames([]);
@@ -1127,9 +1127,10 @@ function App() {
     // Familiarity, so it's applied first as a straightforward hard filter.
     let pool = sizePref ? eligible.filter(p => p.size === sizePref) : eligible;
     // Tester type (Flacon/Short vial/Long vial/Booklet) — hard filter, only meaningful when Size = Tester,
-    // applied right after Size filter, same standing as Size/Collections/Brand.
-    if (sizePref === "Tester" && testerTypePref) {
-      pool = pool.filter(p => p.testerType === testerTypePref);
+    // applied right after Size filter. Multi-select, OR-match: kept if the perfume's testerType
+    // is one of the selected types. No inference fallback — an untagged perfume just doesn't match.
+    if (sizePref === "Tester" && testerTypePref.length) {
+      pool = pool.filter(p => testerTypePref.includes(p.testerType));
     }
     // Collections (§14) — hard filter, applied right alongside Size, before Familiarity
     // narrows further. Multi-select, OR-match: kept if the perfume carries ANY of the
@@ -1310,8 +1311,8 @@ function App() {
             <p className="label" style={{ marginTop: 12 }}>Tester type</p>
             <PillGroup
               options={["Flacon","Short vial","Long vial","Booklet"]}
-              selected={testerTypePref ? [testerTypePref] : []}
-              onToggle={(v) => setTesterTypePref(prev => prev === v ? null : v)}
+              selected={testerTypePref}
+              onToggle={(v) => setTesterTypePref(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v])}
             />
           </>
         )}
